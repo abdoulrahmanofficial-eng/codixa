@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { courses } from '../data/courses';
 import type { Lesson, QuizQuestion, Chapter } from '../data/courses';
+import { useI18n } from '../i18n/I18nContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useBilingualContent } from '../i18n/content';
 import {
   ChevronLeft, ChevronRight, BookOpen, Play, CheckCircle,
   Circle, Clock, Trophy, ArrowLeft, Menu, X,
-  Code2, FileText, HelpCircle, Dumbbell, Star
+  Code2, FileText, HelpCircle, Dumbbell, Star, Lock, ShoppingCart
 } from 'lucide-react';
 
 interface LessonPageProps {
@@ -29,7 +32,6 @@ function MarkdownRenderer({ content }: { content: string }) {
     } else if (line.startsWith('### ')) {
       elements.push(<h3 key={key} className="text-lg font-bold text-indigo-400 mb-3 mt-5">{line.slice(4)}</h3>);
     } else if (line.startsWith('```')) {
-      // Code block
       const lang = line.slice(3).trim();
       const codeLines: string[] = [];
       i++;
@@ -89,7 +91,6 @@ function MarkdownRenderer({ content }: { content: string }) {
       );
       continue;
     } else if (line.startsWith('| ')) {
-      // Table
       const tableLines: string[] = [];
       while (i < lines.length && lines[i].startsWith('|')) {
         if (!lines[i].includes('---')) tableLines.push(lines[i]);
@@ -146,11 +147,22 @@ function formatInline(text: string): string {
 }
 
 function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete: () => void }) {
+  const { t } = useI18n();
   const [currentQ, setCurrentQ] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
+
+  // إعادة تعيين الحالة بالكامل لما الكويز يتغير (الانتقال لدرس تاني)
+  // ده ضمان إضافي مع الـ key عشان نبدأ من السؤال الأول
+  useEffect(() => {
+    setCurrentQ(0);
+    setSelected(null);
+    setAnswered(false);
+    setScore(0);
+    setFinished(false);
+  }, [quiz]);
 
   const question = quiz[currentQ];
 
@@ -181,10 +193,10 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
           {percentage >= 80 ? '🎉' : percentage >= 60 ? '👍' : '📚'}
         </div>
         <h3 className="text-2xl font-black text-white mb-2">
-          {percentage >= 80 ? 'ممتاز!' : percentage >= 60 ? 'جيد!' : 'حاول مجدداً'}
+          {percentage >= 80 ? t('lesson.quiz.excellent') : percentage >= 60 ? t('lesson.quiz.good') : t('lesson.quiz.retry')}
         </h3>
         <p className="text-slate-400 mb-6">
-          أجبت على <span className="text-white font-bold">{score}</span> من <span className="text-white font-bold">{quiz.length}</span> سؤال بشكل صحيح
+          {t('lesson.quiz.score')} <span className="text-white font-bold">{score}</span> {t('lesson.quiz.of')} <span className="text-white font-bold">{quiz.length}</span> {t('lesson.quiz.correctly')}
         </p>
         <div className="w-32 h-32 rounded-full border-4 border-indigo-500 flex items-center justify-center mx-auto mb-6">
           <span className="text-3xl font-black text-white">{percentage}%</span>
@@ -195,14 +207,14 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
             className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold hover:opacity-90 transition-all"
           >
             <CheckCircle size={18} className="inline ml-2" />
-            انتقل للدرس التالي
+            {t('lesson.quiz.nextLesson')}
           </button>
         ) : (
           <button
             onClick={() => { setCurrentQ(0); setSelected(null); setAnswered(false); setScore(0); setFinished(false); }}
             className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:opacity-90 transition-all"
           >
-            حاول مجدداً
+            {t('lesson.quiz.retryBtn')}
           </button>
         )}
       </div>
@@ -211,9 +223,8 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
 
   return (
     <div>
-      {/* Progress */}
       <div className="flex items-center justify-between mb-6">
-        <span className="text-slate-400 text-sm">سؤال {currentQ + 1} من {quiz.length}</span>
+        <span className="text-slate-400 text-sm">{t('lesson.quiz.questionOf')} {currentQ + 1} {t('lesson.quiz.of')} {quiz.length}</span>
         <div className="flex gap-1">
           {quiz.map((_, i) => (
             <div key={i} className={`w-3 h-3 rounded-full transition-all ${i < currentQ ? 'bg-green-500' : i === currentQ ? 'bg-indigo-500' : 'bg-white/20'}`} />
@@ -221,12 +232,10 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
         </div>
       </div>
 
-      {/* Question */}
       <h3 className="text-white font-bold text-lg sm:text-xl mb-6 leading-relaxed">
         {question.question}
       </h3>
 
-      {/* Options */}
       <div className="space-y-3 mb-6">
         {question.options.map((option, idx) => (
           <button
@@ -257,7 +266,6 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
         ))}
       </div>
 
-      {/* Explanation */}
       {answered && (
         <div className={`p-4 rounded-xl mb-6 border ${
           selected === question.correct
@@ -266,19 +274,18 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
         }`}>
           <div className="font-bold mb-1 flex items-center gap-2">
             {selected === question.correct ? <CheckCircle size={16} /> : '❌'}
-            {selected === question.correct ? 'إجابة صحيحة! 🎉' : 'إجابة خاطئة'}
+            {selected === question.correct ? `${t('lesson.quiz.correct')} 🎉` : t('lesson.quiz.wrong')}
           </div>
           <p className="text-sm">{question.explanation}</p>
         </div>
       )}
 
-      {/* Next Button */}
       {answered && (
         <button
           onClick={handleNext}
           className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:opacity-90 transition-all flex items-center justify-center gap-2"
         >
-          {currentQ + 1 >= quiz.length ? 'إنهاء الاختبار' : 'السؤال التالي'}
+          {currentQ + 1 >= quiz.length ? t('lesson.finish') : t('lesson.nextQuestion')}
           <ChevronLeft size={18} />
         </button>
       )}
@@ -287,9 +294,20 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
 }
 
 export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPageProps) {
-  const course = courses.find(c => c.id === selectedCourse);
+  const { t, lang } = useI18n();
+  const { user, profile, purchaseCourse, completeLesson, setLastCourse } = useAuth();
+  const { localizeCourse } = useBilingualContent();
+  const rawCourse = courses.find(c => c.id === selectedCourse);
+  const course = rawCourse ? localizeCourse(rawCourse, lang) : null;
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
+  const [completedLessons, setCompletedLessons] = useState<Set<string>>(
+    () => new Set(profile?.completedLessons || [])
+  );
+  const [buying, setBuying] = useState(false);
+
+  const isFree = course?.free ?? false;
+  const isPurchased = user && profile?.purchasedCourses?.includes(selectedCourse);
+  const canAccess = isFree || isPurchased;
 
   // Flatten all lessons
   const allLessons: { lesson: Lesson; chapter: Chapter }[] = [];
@@ -306,14 +324,101 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
     window.scrollTo(0, 0);
   }, [currentLessonIndex]);
 
-  if (!course || !currentItem) {
+  // حفظ الكورس الحالي كآخر كورس فتحه المستخدم
+  useEffect(() => {
+    if (course && canAccess) {
+      setLastCourse(course.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [course?.id]);
+
+  const handleBuy = async () => {
+    if (!user) { setCurrentPage('auth'); return; }
+    if (!course) return;
+    setBuying(true);
+    if (profile && profile.wallet.balance >= course.price) {
+      const success = await purchaseCourse(course.id, course.price);
+      if (!success) setCurrentPage('wallet');
+    } else {
+      setCurrentPage('wallet');
+    }
+    setBuying(false);
+  };
+
+  if (!course) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">😕</div>
-          <h2 className="text-white font-bold text-2xl mb-4">الكورس غير موجود</h2>
+          <h2 className="text-white font-bold text-2xl mb-4">{t('lesson.notFound')}</h2>
           <button onClick={() => setCurrentPage('courses')} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold">
-            العودة للكورسات
+            {t('lesson.returnToCourses')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Lock screen for paid courses
+  if (!canAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-md text-center">
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center mx-auto mb-6 text-5xl animate-pulse-glow">
+            <Lock size={48} className="text-white" />
+          </div>
+          <h2 className="text-3xl font-black text-white mb-3">{t('lesson.locked')}</h2>
+          <p className="text-slate-400 mb-2">{course.title}</p>
+          <p className="text-slate-400 mb-6">{t('lesson.lockedDesc')}</p>
+
+          <div className="glass rounded-2xl p-4 border border-yellow-500/20 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-slate-300 font-semibold">{course.title}</span>
+              <span className="text-yellow-400 font-black text-lg">{course.price} EGP</span>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-slate-400 mb-3">
+              <span className="flex items-center gap-1"><BookOpen size={12} /> {course.lessons} {t('lesson.count')}</span>
+              <span className="flex items-center gap-1"><Clock size={12} /> {course.duration}</span>
+            </div>
+            {!user ? (
+              <button
+                onClick={() => setCurrentPage('auth')}
+                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2"
+              >
+                {t('auth.login')}
+              </button>
+            ) : (
+              <button
+                onClick={handleBuy}
+                disabled={buying}
+                className="w-full py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+              >
+                <ShoppingCart size={18} />
+                {t('lesson.buyNow')} - {course.price} EGP
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage('courses')}
+            className="text-indigo-400 hover:text-indigo-300 font-semibold text-sm transition-colors"
+          >
+            <ArrowLeft size={16} className="inline ml-1" />
+            {t('lesson.returnToCourses')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentItem) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">😕</div>
+          <h2 className="text-white font-bold text-2xl mb-4">{t('lesson.notFound')}</h2>
+          <button onClick={() => setCurrentPage('courses')} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold">
+            {t('lesson.returnToCourses')}
           </button>
         </div>
       </div>
@@ -322,10 +427,13 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
 
   const { lesson, chapter } = currentItem;
   const isCompleted = completedLessons.has(lesson.id);
-  const progressPercent = Math.round((completedLessons.size / allLessons.length) * 100);
+  // التقدم الحقيقي في الكورس الحالي فقط (بدون حساب دروس الكورسات الأخرى)
+  const completedInThisCourse = allLessons.filter(item => completedLessons.has(item.lesson.id)).length;
+  const progressPercent = Math.round((completedInThisCourse / allLessons.length) * 100);
 
   const markComplete = () => {
     setCompletedLessons(prev => new Set([...prev, lesson.id]));
+    completeLesson(lesson.id);
     if (currentLessonIndex + 1 < allLessons.length) {
       setTimeout(() => setCurrentLessonIndex(i => i + 1), 500);
     }
@@ -343,25 +451,25 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
 
   const getLessonTypeLabel = (type: Lesson['type']) => {
     switch (type) {
-      case 'reading': return 'قراءة';
-      case 'quiz': return 'اختبار';
-      case 'exercise': return 'تمرين';
-      case 'video': return 'فيديو';
+      case 'reading': return lang === 'ar' ? 'قراءة' : 'Reading';
+      case 'quiz': return lang === 'ar' ? 'اختبار' : 'Quiz';
+      case 'exercise': return lang === 'ar' ? 'تمرين' : 'Exercise';
+      case 'video': return lang === 'ar' ? 'فيديو' : 'Video';
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col pt-16">
+    <div className="min-h-screen flex flex-col pt-0">
       {/* Top Progress Bar */}
-      <div className="fixed top-16 right-0 left-0 z-40 h-1 bg-white/10">
+      <div className="fixed top-0 right-0 left-0 z-40 h-1 bg-white/10">
         <div
           className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
 
-      {/* Course Header */}
-      <div className="glass border-b border-white/10 sticky top-16 z-40">
+        {/* Course Header */}
+      <div className="glass border-b border-white/10 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -370,16 +478,16 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
                 className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-sm"
               >
                 <ArrowLeft size={16} />
-                <span className="hidden sm:inline">الكورسات</span>
+                <span className="hidden sm:inline">{t('lesson.back')}</span>
               </button>
               <span className="text-slate-600">/</span>
               <span className="text-white font-semibold text-sm truncate max-w-[200px]">{course.title}</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-sm">
-                <div className="text-slate-400 hidden sm:block">{completedLessons.size}/{allLessons.length} درس</div>
+                <div className="text-slate-400 hidden sm:block">{completedInThisCourse}/{allLessons.length} {t('lesson.count')}</div>
                 <div className="px-3 py-1 bg-indigo-500/20 text-indigo-400 rounded-full text-xs font-bold border border-indigo-500/30">
-                  {progressPercent}% مكتمل
+                  {progressPercent}% {t('lesson.progress')}
                 </div>
               </div>
               <button
@@ -387,7 +495,7 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
                 className="flex items-center gap-2 px-3 py-1.5 glass border border-white/10 text-slate-300 rounded-lg text-sm hover:text-white transition-colors"
               >
                 {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
-                <span className="hidden sm:inline">المنهج</span>
+                <span className="hidden sm:inline">{t('lesson.curriculum')}</span>
               </button>
             </div>
           </div>
@@ -396,9 +504,8 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
 
       <div className="flex flex-1">
         {/* Sidebar */}
-        <aside className={`fixed inset-y-0 right-0 z-50 w-80 bg-slate-900 border-l border-white/10 overflow-y-auto transition-transform duration-300 pt-32 pb-4 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <aside className={`fixed inset-y-0 right-0 z-50 w-80 bg-slate-900 border-l border-white/10 overflow-y-auto transition-transform duration-300 pt-16 pb-4 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
           <div className="px-4">
-            {/* Course Info */}
             <div className={`bg-gradient-to-br ${course.bgGradient} rounded-2xl p-4 mb-6 relative overflow-hidden`}>
               <div className="text-3xl mb-2">{course.icon}</div>
               <h3 className="text-white font-bold text-sm mb-1">{course.title}</h3>
@@ -410,7 +517,6 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
               </div>
             </div>
 
-            {/* Chapters & Lessons */}
             {course.chapters.map((ch) => (
               <div key={ch.id} className="mb-4">
                 <h4 className="text-slate-400 text-xs font-bold uppercase mb-2 px-1">{ch.title}</h4>
@@ -489,7 +595,7 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
               {isCompleted && (
                 <span className="badge bg-green-500/20 text-green-400 border border-green-500/30 flex items-center gap-1">
                   <CheckCircle size={12} />
-                  مكتمل
+                  {t('lesson.completed')}
                 </span>
               )}
             </div>
@@ -507,7 +613,7 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
             <div className="mb-6">
               <h3 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
                 <Code2 size={18} className="text-indigo-400" />
-                مثال كود كامل
+                {t('lesson.codeExample')}
               </h3>
               <div className="code-block overflow-hidden">
                 <div className="terminal-header">
@@ -533,11 +639,11 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
                   <HelpCircle size={20} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="text-white font-bold text-lg">اختبر نفسك!</h3>
-                  <p className="text-slate-400 text-sm">{lesson.quiz.length} سؤال لاختبار فهمك</p>
+                  <h3 className="text-white font-bold text-lg">{t('lesson.quiz.title')}</h3>
+                  <p className="text-slate-400 text-sm">{lesson.quiz.length} {t('lesson.quiz.desc')}</p>
                 </div>
               </div>
-              <QuizComponent quiz={lesson.quiz} onComplete={markComplete} />
+              <QuizComponent key={lesson.id} quiz={lesson.quiz} onComplete={markComplete} />
             </div>
           )}
 
@@ -549,7 +655,7 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
               className="flex items-center gap-2 px-5 py-3 glass border border-white/10 text-slate-300 rounded-xl font-semibold hover:text-white hover:border-white/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronRight size={18} />
-              الدرس السابق
+              {t('lesson.prev')}
             </button>
 
             <div className="text-center">
@@ -560,13 +666,13 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
                   className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold text-sm mt-1 hover:opacity-90 transition-all hover:scale-105"
                 >
                   <CheckCircle size={14} />
-                  تم الانتهاء
+                  {t('lesson.markComplete')}
                 </button>
               )}
               {isCompleted && (
                 <div className="flex items-center gap-1 text-green-400 text-sm font-bold mt-1">
                   <CheckCircle size={14} />
-                  مكتمل
+                  {t('lesson.completed')}
                 </div>
               )}
             </div>
@@ -576,7 +682,7 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
                 onClick={() => setCurrentLessonIndex(i => Math.min(allLessons.length - 1, i + 1))}
                 className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:opacity-90 transition-all hover:scale-105"
               >
-                الدرس التالي
+                {t('lesson.next')}
                 <ChevronLeft size={18} />
               </button>
             ) : (
@@ -585,7 +691,7 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
                 className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-semibold hover:opacity-90 transition-all"
               >
                 <Trophy size={18} />
-                شاهد إنجازاتك
+                {t('lesson.viewAchievements')}
               </button>
             )}
           </div>
@@ -594,7 +700,7 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
           {isCompleted && (
             <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center gap-2 text-yellow-400 text-sm font-bold">
               <Star size={16} />
-              +20 XP - أحسنت! واصل التعلم 🔥
+              +20 XP - {t('lesson.xpEarned')} 🔥
             </div>
           )}
         </main>

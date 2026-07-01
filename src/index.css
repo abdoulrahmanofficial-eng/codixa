@@ -212,6 +212,15 @@ body {
   border-radius: 50%;
 }
 
+/* Certificate */
+.certificate-border {
+  background: linear-gradient(135deg, #1e1b4b, #0f172a);
+  border: 3px solid rgba(129, 140, 248, 0.4);
+  border-radius: 24px;
+  padding: 40px 32px;
+  box-shadow: 0 0 60px rgba(99, 102, 241, 0.1);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .hide-mobile { display: none; }

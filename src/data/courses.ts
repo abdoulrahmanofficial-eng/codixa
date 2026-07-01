@@ -37,6 +37,8 @@ export interface Course {
   chapters: Chapter[];
   skills: string[];
   prerequisites: string[];
+  free: boolean;
+  price: number;
 }
 
 export const courses: Course[] = [
@@ -54,6 +56,8 @@ export const courses: Course[] = [
     language: 'Scratch',
     skills: ['التفكير المنطقي', 'حل المشكلات', 'الإبداع', 'الخوارزميات البسيطة'],
     prerequisites: [],
+    free: true,
+    price: 0,
     chapters: [
       {
         id: 'scratch-ch1',
@@ -839,6 +843,8 @@ Scratch بيشتغل بـ **بلوكات (Blocks)** - يعني قطع ملونة
     language: 'Python',
     skills: ['المتغيرات', 'الدوال', 'القوائم', 'الشروط', 'التكرار', 'الملفات'],
     prerequisites: [],
+    free: false,
+    price: 199,
     chapters: [
       {
         id: 'python-ch1',
@@ -2120,7 +2126,7 @@ print(mean([1,2,3,4,5])) # 3`,
             content: `# استيراد المكتبات 📦
 
 ## ما هي المكتبة؟
-مجموعة دوال جاهزة استخدمها في كودي.
+مجموعة دوال جاهزة استخدمها في Codixa.
 
 ## طرق الاستيراد:
 \`\`\`python
@@ -2808,6 +2814,8 @@ print(matrix.T)  # منقولة`,
     language: 'HTML/CSS',
     skills: ['HTML5', 'CSS3', 'Flexbox', 'Grid', 'Responsive Design', 'Animations'],
     prerequisites: [],
+    free: false,
+    price: 199,
     chapters: [
       {
         id: 'htmlcss-ch1',
@@ -4221,6 +4229,8 @@ input:checked + label { color: green; }
     language: 'JavaScript',
     skills: ['DOM', 'Events', 'Async/Await', 'APIs', 'ES6+', 'React'],
     prerequisites: ['html-css'],
+    free: false,
+    price: 249,
     chapters: [
       {
         id: 'js-ch1',
@@ -6292,6 +6302,8 @@ git pull              # جلب التحديثات
     language: 'Python + AI',
     skills: ['Machine Learning', 'Neural Networks', 'Data Science', 'Computer Vision', 'NLP'],
     prerequisites: ['python'],
+    free: false,
+    price: 299,
     chapters: [
       {
         id: 'ai-ch1',
@@ -7671,6 +7683,8 @@ AI لن يأخذ وظيفتك. شخص يستخدم AI سيأخذها!
     language: 'React',
     skills: ['JSX', 'Components', 'State & Props', 'Hooks', 'Context API', 'React Router'],
     prerequisites: ['javascript'],
+    free: false,
+    price: 249,
     chapters: [
       {
             id: 'react-ch1',

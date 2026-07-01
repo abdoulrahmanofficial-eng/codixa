@@ -1,4 +1,6 @@
 import { roadmaps, courses } from '../data/courses';
+import { useI18n } from '../i18n/I18nContext';
+import { useBilingualContent } from '../i18n/content';
 import { ArrowLeft, Clock, Users, BookOpen, Zap, Target } from 'lucide-react';
 
 interface RoadmapPageProps {
@@ -7,6 +9,9 @@ interface RoadmapPageProps {
 }
 
 export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: RoadmapPageProps) {
+  const { t, lang } = useI18n();
+  const { localizeCourse } = useBilingualContent();
+
   return (
     <div className="min-h-screen pt-20 pb-10 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
@@ -14,13 +19,13 @@ export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: Roadm
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-green-500/30 text-green-300 text-sm font-semibold mb-4">
             <Target size={14} />
-            خطط مسارك التعليمي
+            {t('roadmap.badge')}
           </div>
           <h1 className="text-3xl sm:text-5xl font-black text-white mb-4">
-            مسارات التعلم
+            {t('roadmap.title')}
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            اختار المسار المناسب لعمرك وأهدافك وابدأ رحلتك المرتبة خطوة بخطوة
+            {t('roadmap.desc')}
           </p>
         </div>
 
@@ -45,15 +50,15 @@ export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: Roadm
                   <div className="flex gap-4 text-white/90 text-sm">
                     <div className="glass rounded-xl px-4 py-2 border border-white/20 text-center">
                       <div className="font-bold">{roadmap.duration}</div>
-                      <div className="text-white/70 text-xs">المدة</div>
+                      <div className="text-white/70 text-xs">{t('roadmap.duration')}</div>
                     </div>
                     <div className="glass rounded-xl px-4 py-2 border border-white/20 text-center">
                       <div className="font-bold">{roadmap.ageRange}</div>
-                      <div className="text-white/70 text-xs">الفئة العمرية</div>
+                      <div className="text-white/70 text-xs">{t('roadmap.ageGroup')}</div>
                     </div>
                     <div className="glass rounded-xl px-4 py-2 border border-white/20 text-center">
                       <div className="font-bold">{roadmap.steps.length}</div>
-                      <div className="text-white/70 text-xs">مراحل</div>
+                      <div className="text-white/70 text-xs">{t('roadmap.steps')}</div>
                     </div>
                   </div>
                 </div>
@@ -62,25 +67,23 @@ export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: Roadm
               {/* Steps */}
               <div className="p-6 sm:p-8">
                 <div className="relative">
-                  {/* Connection Line */}
                   <div className="absolute right-8 top-8 bottom-8 w-0.5 bg-gradient-to-b from-transparent via-white/10 to-transparent hidden sm:block" />
 
                   <div className="space-y-6">
                     {roadmap.steps.map((step) => {
-                      const course = courses.find(c => c.id === step.courseId);
+                      const rawCourse = courses.find(c => c.id === step.courseId);
+                      const course = rawCourse ? localizeCourse(rawCourse, lang) : null;
                       return (
                         <div key={step.id} className="flex flex-col sm:flex-row gap-4 sm:gap-6 relative">
-                          {/* Step Number */}
                           <div className="flex-shrink-0 flex sm:flex-col items-center gap-3">
                             <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${roadmap.color} flex items-center justify-center text-2xl shadow-lg`}>
                               {step.icon}
                             </div>
                             <div className={`px-3 py-1 rounded-full bg-gradient-to-r ${roadmap.color} text-white text-xs font-bold`}>
-                              المرحلة {step.id}
+                              {t('roadmap.step')} {step.id}
                             </div>
                           </div>
 
-                          {/* Step Content */}
                           <div className="flex-1 glass rounded-2xl p-5 border border-white/10 hover:border-indigo-500/30 transition-all group">
                             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
                               <div>
@@ -93,7 +96,6 @@ export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: Roadm
                               </span>
                             </div>
 
-                            {/* Course Info */}
                             {course && (
                               <div className="mb-4">
                                 <div className="flex flex-wrap gap-2">
@@ -113,7 +115,7 @@ export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: Roadm
                                   className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r ${roadmap.color} text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-all hover:scale-105 shadow-lg`}
                                 >
                                   <Zap size={14} />
-                                  ابدأ هذه المرحلة
+                                  {t('roadmap.startStep')}
                                 </button>
                               )}
                               <div className="flex items-center gap-3 text-xs text-slate-500">
@@ -121,7 +123,7 @@ export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: Roadm
                                   <>
                                     <span className="flex items-center gap-1">
                                       <BookOpen size={12} />
-                                      {course.lessons} درس
+                                      {course.lessons} {t('lesson.count')}
                                     </span>
                                     <span className="flex items-center gap-1">
                                       <Users size={12} />
@@ -142,9 +144,9 @@ export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: Roadm
                 <div className={`mt-8 p-5 rounded-2xl bg-gradient-to-r ${roadmap.color} bg-opacity-10 border border-white/10 flex flex-col sm:flex-row items-center gap-4`}>
                   <div className="text-4xl">🏆</div>
                   <div>
-                    <h4 className="text-white font-bold text-lg">بعد إتمام المسار</h4>
+                    <h4 className="text-white font-bold text-lg">{t('roadmap.completionTitle')}</h4>
                     <p className="text-slate-300 text-sm">
-                      ستحصل على شهادة <span className="text-white font-bold">{roadmap.title}</span> وستكون مؤهلاً للبدء في مشاريع حقيقية!
+                      {t('roadmap.completionDesc')} <span className="text-white font-bold">{roadmap.title}</span> {t('roadmap.completionDesc2')}
                     </p>
                   </div>
                 </div>
@@ -156,16 +158,16 @@ export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: Roadm
         {/* Custom Path Section */}
         <div className="mt-10 glass rounded-3xl p-8 border border-indigo-500/20 text-center">
           <div className="text-5xl mb-4">🎯</div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">مش عارف تختار؟</h2>
+          <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">{t('roadmap.helpTitle')}</h2>
           <p className="text-slate-400 text-lg mb-6 max-w-xl mx-auto">
-            ابدأ من حيث تريد! كل كورس مستقل وكامل بذاته. المهم تبدأ!
+            {t('roadmap.helpDesc')}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             {[
-              { emoji: '👶', text: 'عمرك أقل من 12؟', action: 'ابدأ بـ Scratch', courseId: 'scratch' },
-              { emoji: '🌐', text: 'عايز تعمل موقع؟', action: 'ابدأ بـ HTML/CSS', courseId: 'html-css' },
-              { emoji: '🐍', text: 'عايز تتعلم برمجة؟', action: 'ابدأ بـ Python', courseId: 'python' },
-              { emoji: '🤖', text: 'مهتم بـ AI؟', action: 'مسار الذكاء الاصطناعي', courseId: 'ai-basics' },
+              { emoji: '👶', text: t('roadmap.youngAge'), action: t('roadmap.startScratch'), courseId: 'scratch' },
+              { emoji: '🌐', text: t('roadmap.webDev'), action: t('roadmap.startHTML'), courseId: 'html-css' },
+              { emoji: '🐍', text: t('roadmap.learnProgramming'), action: t('roadmap.startPython'), courseId: 'python' },
+              { emoji: '🤖', text: t('roadmap.aiInterest'), action: t('roadmap.aiPath'), courseId: 'ai-basics' },
             ].map((item, i) => (
               <button
                 key={i}
@@ -182,7 +184,7 @@ export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: Roadm
             onClick={() => setCurrentPage('courses')}
             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:opacity-90 transition-all hover:scale-105"
           >
-            اعرض كل الكورسات
+            {t('roadmap.showAllCourses')}
             <ArrowLeft size={16} />
           </button>
         </div>
