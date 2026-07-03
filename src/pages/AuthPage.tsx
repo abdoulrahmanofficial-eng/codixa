@@ -68,10 +68,11 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
       await sendPasswordResetEmail(auth, email);
       setResetSent(true);
     } catch (err: any) {
+      console.error('Password reset error:', err);
       const code = err.code || '';
       if (code === 'auth/invalid-email') setError(t('auth.error.invalidEmail'));
       else if (code === 'auth/user-not-found') setError(t('auth.error.userNotFound'));
-      else setError(err.message || t('auth.error.default'));
+      else setError(`[${code}] ${err.message}`);
     } finally {
       setResetLoading(false);
     }
