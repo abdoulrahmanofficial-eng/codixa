@@ -71,7 +71,7 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
       const code = err.code || '';
       if (code === 'auth/invalid-email') setError(t('auth.error.invalidEmail'));
       else if (code === 'auth/user-not-found') setError(t('auth.error.userNotFound'));
-      else setError(t('auth.error.default'));
+      else setError(err.message || t('auth.error.default'));
     } finally {
       setResetLoading(false);
     }
