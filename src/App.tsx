@@ -133,9 +133,12 @@ function RBackend() { const n = useNav(); return <AppShell showHeader={false}><B
 function AppRoutes() {
   const { user, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const prevUserRef = useRef(user);
 
   useEffect(() => {
-    if (!loading && !user) {
+    const prev = prevUserRef.current;
+    prevUserRef.current = user;
+    if (!loading && !user && prev) {
       navigate('/', { replace: true });
     }
   }, [loading, user, navigate]);
