@@ -398,11 +398,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const fromData = fromSnap.val();
     const toData = toSnap.val();
     const fromBalance = fromData.wallet?.balance || 0;
-    const actual = Math.min(amount, fromBalance);
+    if (amount > fromBalance) throw new Error('Insufficient balance');
     const fromTxRef = push(ref(rtdb, `users/${fromUserId}/wallet/transactions`));
     await set(fromTxRef, {
       type: 'transfer_out',
-      amount: actual,
+      amount,
       date: Date.now(),
       status: 'completed',
       description: `تحويل إلى ${toData.name || toUserId}`,
@@ -410,14 +410,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const toTxRef = push(ref(rtdb, `users/${toUserId}/wallet/transactions`));
     await set(toTxRef, {
       type: 'transfer_in',
-      amount: actual,
+      amount,
       date: Date.now(),
       status: 'completed',
       description: `تحويل من ${fromData.name || fromUserId}`,
     });
     await Promise.all([
-      update(ref(rtdb, `users/${fromUserId}`), { ['wallet/balance']: fromBalance - actual }),
-      update(ref(rtdb, `users/${toUserId}`), { ['wallet/balance']: (toData.wallet?.balance || 0) + actual }),
+      update(ref(rtdb, `users/${fromUserId}`), { ['wallet/balance']: fromBalance - amount }),
+      update(ref(rtdb, `users/${toUserId}`), { ['wallet/balance']: (toData.wallet?.balance || 0) + amount }),
     ]);
   };
 

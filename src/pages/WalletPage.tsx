@@ -47,6 +47,8 @@ export default function WalletPage({ setCurrentPage }: WalletPageProps) {
     if (!amt || amt <= 0) { setTransferMsg(lang === 'ar' ? 'المبلغ غير صحيح' : 'Invalid amount'); return; }
     if (!transferEmail.trim()) { setTransferMsg(lang === 'ar' ? 'البريد الإلكتروني مطلوب' : 'Email is required'); return; }
     if (!user?.uid) return;
+    const balance = profile?.wallet?.balance || 0;
+    if (amt > balance) { setTransferMsg(lang === 'ar' ? 'رصيدك غير كافٍ لهذا التحويل' : 'Insufficient balance for this transfer'); setTransferLoading(false); return; }
     setTransferLoading(true);
     try {
       const recipient = await findUserByEmail(transferEmail.trim());
