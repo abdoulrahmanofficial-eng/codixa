@@ -10,7 +10,7 @@ interface WalletPageProps {
 
 export default function WalletPage({ setCurrentPage }: WalletPageProps) {
   const { t, lang } = useI18n();
-  const { profile, user, addTransaction, transferBalance, findUserByEmail } = useAuth();
+  const { profile, user, addTransaction, transferBalance, findUserByEmail, refreshProfile } = useAuth();
   const [showTopUp, setShowTopUp] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferEmail, setTransferEmail] = useState('');
@@ -55,6 +55,7 @@ export default function WalletPage({ setCurrentPage }: WalletPageProps) {
       if (!recipient) { setTransferMsg(lang === 'ar' ? 'المستخدم غير موجود — تأكد من البريد الإلكتروني أو الاسم' : 'User not found — check the email or name'); setTransferLoading(false); return; }
       if (recipient.uid === user.uid) { setTransferMsg(lang === 'ar' ? 'لا يمكن التحويل لنفسك' : 'Cannot transfer to yourself'); setTransferLoading(false); return; }
       await transferBalance(user.uid, recipient.uid, amt);
+      await refreshProfile();
       setTransferEmail('');
       setTransferAmt('');
       setShowTransfer(false);
