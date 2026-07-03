@@ -33,6 +33,8 @@ export const translations: Record<string, Record<string, string>> = {
     'nav.startLearning': 'ابدأ التعلم',
     'nav.mobileCta': 'ابدأ التعلم الآن',
     'nav.langToggle': 'English',
+    'nav.about': 'حول',
+    'nav.aboutPlatform': 'حول المنصة',
 
     // Auth
     'auth.login': 'تسجيل الدخول',
@@ -311,6 +313,26 @@ export const translations: Record<string, Record<string, string>> = {
 
     // Lessons count
     'lesson.count': 'درس',
+    'lesson.count_plural': 'درس',
+
+    // Admin Courses
+    'admin.courses.title': 'إدارة الكورسات',
+    'admin.courses.seed': 'تهيئة الكورس',
+    'admin.courses.seedDesc': 'تحميل جميع دروس مسار تطوير الواجهات الخلفية إلى قاعدة البيانات',
+    'admin.courses.seedBtn': 'تهيئة الكورس',
+    'admin.courses.seeded': 'تم التهيئة بنجاح',
+    'admin.courses.alreadySeeded': 'موجود مسبقاً',
+    'admin.courses.seeding': 'جاري التهيئة...',
+    'admin.courses.price': 'التحكم في السعر',
+    'admin.courses.currentPrice': 'السعر الحالي',
+    'admin.courses.newPrice': 'السعر الجديد',
+    'admin.courses.updatePrice': 'تحديث السعر',
+    'admin.courses.priceUpdated': 'تم التحديث',
+    'admin.courses.allCourses': 'جميع الكورسات',
+    'admin.courses.editPrice': 'تعديل السعر',
+    'admin.courses.save': 'حفظ',
+    'admin.courses.free': 'مجاني',
+    'admin.courses.paid': 'مدفوع',
 
     // Profile Page
     'profile.edit': 'تعديل البروفايل',
@@ -600,7 +622,11 @@ export const translations: Record<string, Record<string, string>> = {
     'lesson.lockedDesc': 'To enroll in this course, please purchase it first',
     'lesson.buyNow': 'Buy Course Now',
     'lesson.watchAd': 'Or watch an ad to unlock',
-
+    
+    // Sidebar
+    'nav.about': 'About',
+    'nav.aboutPlatform': 'About Kodi',
+    
     // Typewriter texts
     'home.typewriter.professional': 'Professional Programmer',
     'home.typewriter.webDev': 'Web Developer',
@@ -666,6 +692,26 @@ export const translations: Record<string, Record<string, string>> = {
 
     // Lessons count
     'lesson.count': 'lessons',
+    'lesson.count_plural': 'lessons',
+
+    // Admin Courses
+    'admin.courses.title': 'Course Management',
+    'admin.courses.seed': 'Seed Course',
+    'admin.courses.seedDesc': 'Load all 48 Backend Engineering track lessons into the database',
+    'admin.courses.seedBtn': 'Seed Course',
+    'admin.courses.seeded': 'Seeded successfully',
+    'admin.courses.alreadySeeded': 'Already seeded',
+    'admin.courses.seeding': 'Seeding...',
+    'admin.courses.price': 'Pricing Control',
+    'admin.courses.currentPrice': 'Current Price',
+    'admin.courses.newPrice': 'New Price',
+    'admin.courses.updatePrice': 'Update Price',
+    'admin.courses.priceUpdated': 'Updated',
+    'admin.courses.allCourses': 'All Dynamic Courses',
+    'admin.courses.editPrice': 'Edit Price',
+    'admin.courses.save': 'Save',
+    'admin.courses.free': 'Free',
+    'admin.courses.paid': 'Paid',
 
     // Profile Page
     'profile.edit': 'Edit Profile',
@@ -710,3 +756,4 @@ export const translations: Record<string, Record<string, string>> = {
     'playground.help': 'Try: console.log("Hello Codixa!")',
   }
 };
+

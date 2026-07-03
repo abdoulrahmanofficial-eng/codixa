@@ -33,7 +33,7 @@ export default function AchievementsPage({ setCurrentPage, setSelectedCourse }: 
     return {
       course: c.id,
       label: c.title,
-      progress: totalLessons > 0 ? Math.round((done / totalLessons) * 100) : 0,
+      progress: totalLessons > 0 ? Math.min(100, Math.round((done / totalLessons) * 100)) : 0,
       color: c.bgGradient,
       icon: c.icon,
       lessons: totalLessons,

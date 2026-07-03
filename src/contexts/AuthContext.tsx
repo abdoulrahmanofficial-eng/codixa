@@ -42,6 +42,7 @@ export interface UserProfile {
   isAdmin?: boolean;
   avatar?: string;
   lastCourse?: string;
+  lastLesson?: Record<string, string>; // { courseId: lessonId }
 }
 
 interface AuthContextType {
@@ -57,9 +58,16 @@ interface AuthContextType {
   approveDeposit: (userId: string, txId: string) => Promise<void>;
   rejectDeposit: (userId: string, txId: string) => Promise<void>;
   getAllUsers: () => Promise<UserProfile[]>;
+  findUserByEmail: (email: string) => Promise<{ uid: string; name: string } | null>;
   getAllTransactions: () => Promise<Transaction[]>;
   setAdminRole: (userId: string, isAdmin: boolean) => Promise<void>;
   addUserBalance: (userId: string, amount: number) => Promise<void>;
+  deductUserBalance: (userId: string, amount: number) => Promise<void>;
+  transferBalance: (fromUserId: string, toUserId: string, amount: number) => Promise<void>;
+  createDiscountCode: (code: string, percentage: number) => Promise<void>;
+  getAllDiscountCodes: () => Promise<{ code: string; percentage: number; createdAt: number; active: boolean }[]>;
+  deleteDiscountCode: (code: string) => Promise<void>;
+  validateDiscountCode: (code: string) => Promise<{ valid: boolean; percentage: number }>;
   updateProfileData: (data: { name?: string; avatar?: string }) => Promise<void>;
   completeLesson: (lessonId: string) => Promise<void>;
   setLastCourse: (courseId: string) => Promise<void>;
@@ -79,12 +87,20 @@ const AuthContext = createContext<AuthContextType>({
   approveDeposit: async () => {},
   rejectDeposit: async () => {},
   getAllUsers: async () => [],
+  findUserByEmail: async () => null,
   getAllTransactions: async () => [],
   setAdminRole: async () => {},
   addUserBalance: async () => {},
+  deductUserBalance: async () => {},
+  transferBalance: async () => {},
+  createDiscountCode: async () => {},
+  getAllDiscountCodes: async () => [],
+  deleteDiscountCode: async () => {},
+  validateDiscountCode: async () => ({ valid: false, percentage: 0 }),
   updateProfileData: async () => {},
   completeLesson: async () => {},
   setLastCourse: async () => {},
+  setLastLesson: async () => {},
   isAdmin: false,
 });
 
@@ -163,28 +179,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let cancelled = false;
+    let nullTimeout: number | undefined;
+    let isInitialCheck = true;
     const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      if (cancelled) return;
+      if (nullTimeout) { clearTimeout(nullTimeout); nullTimeout = undefined; }
       setUser(firebaseUser);
       if (firebaseUser) {
-        setProfile({
-          uid: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-          email: firebaseUser.email || '',
-          createdAt: Date.now(),
-          purchasedCourses: ['scratch'],
-          completedLessons: [],
-          xp: 0,
-          level: 1,
-          wallet: { balance: 0, transactions: [] },
+        isInitialCheck = false;
+        fetchProfile(firebaseUser.uid).then(found => {
+          if (cancelled) return;
+          if (!found) {
+            const newProfile = createDefaultProfile(
+              firebaseUser.uid,
+              firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              firebaseUser.email || ''
+            );
+            setProfile(newProfile);
+            set(ref(rtdb, `users/${firebaseUser.uid}`), {
+              name: newProfile.name,
+              email: newProfile.email,
+              createdAt: newProfile.createdAt,
+              purchasedCourses: arrayToRtdb(newProfile.purchasedCourses),
+              wallet: { balance: 0 },
+              xp: 0,
+              level: 1,
+            }).catch(() => {});
+          }
+          setLoading(false);
+        }).catch(() => {
+          if (cancelled) return;
+          setProfile(null);
+          setLoading(false);
         });
-        // Load full profile from RTDB asynchronously (don't block UI)
-        fetchProfile(firebaseUser.uid).catch(() => {});
       } else {
-        setProfile(null);
+        if (isInitialCheck) {
+          isInitialCheck = false;
+          nullTimeout = window.setTimeout(() => {
+            if (cancelled) return;
+            setProfile(null);
+            setLoading(false);
+          }, 300);
+        } else {
+          setProfile(null);
+          setLoading(false);
+        }
       }
-      setLoading(false);
     });
-    return () => unsub();
+    return () => { cancelled = true; if (nullTimeout) clearTimeout(nullTimeout); unsub(); };
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -247,6 +290,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const findUserByEmail = async (query: string): Promise<{ uid: string; name: string } | null> => {
+    const snap = await get(ref(rtdb, 'users'));
+    if (!snap.exists()) return null;
+    const data = snap.val();
+    const q = query.toLowerCase().trim();
+    for (const uid of Object.keys(data)) {
+      const name = (data[uid].name || '').toLowerCase();
+      const email = (data[uid].email || '').toLowerCase();
+      if (email === q || name === q) {
+        return { uid, name: data[uid].name || email };
+      }
+    }
+    return null;
+  };
+
   const getAllUsers = async (): Promise<UserProfile[]> => {
     const snap = await get(ref(rtdb, 'users'));
     if (!snap.exists()) return [];
@@ -307,6 +365,90 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await update(ref(rtdb, `users/${userId}`), {
       ['wallet/balance']: (data.wallet?.balance || 0) + amount,
     });
+  };
+
+  const deductUserBalance = async (userId: string, amount: number) => {
+    if (!isAdmin) return;
+    const snap = await get(ref(rtdb, `users/${userId}`));
+    if (!snap.exists()) return;
+    const data = snap.val();
+    const currentBalance = data.wallet?.balance || 0;
+    const newBalance = Math.max(0, currentBalance - amount);
+    const txRef = push(ref(rtdb, `users/${userId}/wallet/transactions`));
+    await set(txRef, {
+      type: 'purchase',
+      amount,
+      date: Date.now(),
+      status: 'completed',
+      description: 'تم الخصم بواسطة المدير',
+    });
+    await update(ref(rtdb, `users/${userId}`), {
+      ['wallet/balance']: newBalance,
+    });
+  };
+
+  const transferBalance = async (fromUserId: string, toUserId: string, amount: number) => {
+    if (!isAdmin && fromUserId !== user?.uid) return;
+    if (amount <= 0) return;
+    const [fromSnap, toSnap] = await Promise.all([
+      get(ref(rtdb, `users/${fromUserId}`)),
+      get(ref(rtdb, `users/${toUserId}`)),
+    ]);
+    if (!fromSnap.exists() || !toSnap.exists()) return;
+    const fromData = fromSnap.val();
+    const toData = toSnap.val();
+    const fromBalance = fromData.wallet?.balance || 0;
+    const actual = Math.min(amount, fromBalance);
+    const fromTxRef = push(ref(rtdb, `users/${fromUserId}/wallet/transactions`));
+    await set(fromTxRef, {
+      type: 'transfer_out',
+      amount: actual,
+      date: Date.now(),
+      status: 'completed',
+      description: `تحويل إلى ${toData.name || toUserId}`,
+    });
+    const toTxRef = push(ref(rtdb, `users/${toUserId}/wallet/transactions`));
+    await set(toTxRef, {
+      type: 'transfer_in',
+      amount: actual,
+      date: Date.now(),
+      status: 'completed',
+      description: `تحويل من ${fromData.name || fromUserId}`,
+    });
+    await Promise.all([
+      update(ref(rtdb, `users/${fromUserId}`), { ['wallet/balance']: fromBalance - actual }),
+      update(ref(rtdb, `users/${toUserId}`), { ['wallet/balance']: (toData.wallet?.balance || 0) + actual }),
+    ]);
+  };
+
+  const createDiscountCode = async (code: string, percentage: number) => {
+    if (!isAdmin) return;
+    await set(ref(rtdb, `discount-codes/${code.toUpperCase()}`), {
+      code: code.toUpperCase(),
+      percentage,
+      createdAt: Date.now(),
+      active: true,
+    });
+  };
+
+  const getAllDiscountCodes = async (): Promise<{ code: string; percentage: number; createdAt: number; active: boolean }[]> => {
+    const snap = await get(ref(rtdb, 'discount-codes'));
+    if (!snap.exists()) return [];
+    const data = snap.val();
+    return Object.keys(data).map(k => data[k]);
+  };
+
+  const deleteDiscountCode = async (code: string) => {
+    if (!isAdmin) return;
+    await set(ref(rtdb, `discount-codes/${code.toUpperCase()}`), null);
+  };
+
+  const validateDiscountCode = async (code: string): Promise<{ valid: boolean; percentage: number }> => {
+    const snap = await get(ref(rtdb, `discount-codes/${code.toUpperCase()}`));
+    if (!snap.exists()) return { valid: false, percentage: 0 };
+    const data = snap.val();
+    if (!data.active) return { valid: false, percentage: 0 };
+    return { valid: true, percentage: data.percentage };
   };
 
   const purchaseCourse = async (courseId: string, price: number): Promise<boolean> => {
@@ -382,6 +524,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         completedCourses[c.id] = Date.now();
       }
     }
+    // Check backend engineering course (48 lessons: be-l1 to be-l48)
+    if (!completedCourses['backend-engineering']) {
+      const beAllDone = Array.from({ length: 48 }, (_, i) => `be-l${i + 1}`).every(id => completedObj[id]);
+      if (beAllDone) {
+        completedCourses['backend-engineering'] = Date.now();
+      }
+    }
 
     const updates: Record<string, any> = {
       completedLessons: completedObj,
@@ -408,6 +557,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // حفظ آخر درس فتحه المستخدم في كورس معين
+  const setLastLesson = async (courseId: string, lessonId: string) => {
+    if (!user) return;
+    if (profile?.lastLesson?.[courseId] === lessonId) return; // تجنّب الكتابة الزائدة
+    try {
+      const updates: Record<string, any> = {
+        lastLesson: { ...(profile?.lastLesson || {}), [courseId]: lessonId }
+      };
+      await update(ref(rtdb, `users/${user.uid}`), updates);
+      await refreshProfile();
+    } catch (e) {
+      console.warn('Failed to save lastLesson:', e);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -420,13 +584,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       purchaseCourse,
       completeLesson,
       setLastCourse,
+      setLastLesson,
       addTransaction,
       approveDeposit,
       rejectDeposit,
       getAllUsers,
+      findUserByEmail,
       getAllTransactions,
       setAdminRole,
       addUserBalance,
+      deductUserBalance,
+      transferBalance,
+      createDiscountCode,
+      getAllDiscountCodes,
+      deleteDiscountCode,
+      validateDiscountCode,
       updateProfileData,
       isAdmin,
     }}>

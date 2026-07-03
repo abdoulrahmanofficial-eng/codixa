@@ -1,0 +1,26 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth.uid !== null",
+      ".write": "auth.uid !== null",
+      "$uid": {
+        ".read": "auth.uid === $uid || root.child('users').child(auth.uid).child('isAdmin').val() === true",
+        ".write": "auth.uid === $uid || root.child('users').child(auth.uid).child('isAdmin').val() === true"
+      }
+    },
+    "dynamic-courses": {
+      ".read": "auth.uid !== null",
+      "$courseId": {
+        ".read": "auth.uid !== null",
+        "lessons": {
+          ".read": "auth.uid !== null && (data.child('content').exists() === false || root.child('users').child(auth.uid).child('purchasedCourses').child($courseId).exists() || root.child('dynamic-courses').child($courseId).child('free').val() === true || root.child('users').child(auth.uid).child('isAdmin').val() === true)",
+          "$lessonId": {
+            ".read": "auth.uid !== null && (root.child('users').child(auth.uid).child('purchasedCourses').child($courseId).exists() || root.child('dynamic-courses').child($courseId).child('free').val() === true || root.child('users').child(auth.uid).child('isAdmin').val() === true)",
+            ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+          }
+        },
+        ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+      }
+    }
+  }
+}

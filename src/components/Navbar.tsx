@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BookOpen, Home, Map, Trophy, Menu, X, Code2, Zap, LogOut, Wallet, User, Globe } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
+import { fmt } from '../lib/format';
 
 interface NavbarProps {
   currentPage: string;

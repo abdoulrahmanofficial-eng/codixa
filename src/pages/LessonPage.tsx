@@ -4,6 +4,8 @@ import type { Lesson, QuizQuestion, Chapter } from '../data/courses';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useBilingualContent } from '../i18n/content';
+import { formatEGP } from '../utils/format';
+import { getCoursePrice } from '../lib/priceService';
 import {
   ChevronLeft, ChevronRight, BookOpen, Play, CheckCircle,
   Circle, Clock, Trophy, ArrowLeft, Menu, X,
@@ -295,7 +297,7 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
 
 export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPageProps) {
   const { t, lang } = useI18n();
-  const { user, profile, purchaseCourse, completeLesson, setLastCourse } = useAuth();
+  const { user, profile, purchaseCourse, completeLesson, setLastCourse, setLastLesson } = useAuth();
   const { localizeCourse } = useBilingualContent();
   const rawCourse = courses.find(c => c.id === selectedCourse);
   const course = rawCourse ? localizeCourse(rawCourse, lang) : null;
@@ -304,6 +306,22 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
     () => new Set(profile?.completedLessons || [])
   );
   const [buying, setBuying] = useState(false);
+  const [effectivePrice, setEffectivePrice] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (course) {
+      getCoursePrice(course.id).then(override => {
+        setEffectivePrice(override);
+      });
+    }
+  }, [course?.id]);
+
+  // Sync completedLessons when profile updates from RTDB
+  useEffect(() => {
+    if (profile?.completedLessons) {
+      setCompletedLessons(new Set(profile.completedLessons));
+    }
+  }, [profile?.completedLessons]);
 
   const isFree = course?.free ?? false;
   const isPurchased = user && profile?.purchasedCourses?.includes(selectedCourse);
@@ -317,7 +335,14 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
     });
   });
 
-  const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
+  // ابدأ من الدرس اللي عليه الدور (آخر درس فتحته في الكورس ده)
+  const getInitialLessonIndex = () => {
+    if (!profile?.lastLesson?.[selectedCourse]) return 0;
+    const lastLessonId = profile.lastLesson[selectedCourse];
+    return allLessons.findIndex(item => item.lesson.id === lastLessonId) || 0;
+  };
+
+  const [currentLessonIndex, setCurrentLessonIndex] = useState(getInitialLessonIndex);
   const currentItem = allLessons[currentLessonIndex];
 
   useEffect(() => {
@@ -332,12 +357,21 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [course?.id]);
 
+  // حفظ آخر درس فتحته في الكورس ده
+  useEffect(() => {
+    if (course && canAccess && currentItem) {
+      setLastLesson(course.id, currentItem.lesson.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLessonIndex]);
+
   const handleBuy = async () => {
     if (!user) { setCurrentPage('auth'); return; }
     if (!course) return;
     setBuying(true);
-    if (profile && profile.wallet.balance >= course.price) {
-      const success = await purchaseCourse(course.id, course.price);
+    const price = effectivePrice ?? course.price;
+    if (profile && profile.wallet.balance >= price) {
+      const success = await purchaseCourse(course.id, price);
       if (!success) setCurrentPage('wallet');
     } else {
       setCurrentPage('wallet');
@@ -374,7 +408,7 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
           <div className="glass rounded-2xl p-4 border border-yellow-500/20 mb-6">
             <div className="flex items-center justify-between mb-3">
               <span className="text-slate-300 font-semibold">{course.title}</span>
-              <span className="text-yellow-400 font-black text-lg">{course.price} EGP</span>
+              <span className="text-yellow-400 font-black text-lg">{formatEGP(effectivePrice ?? course.price)}</span>
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-400 mb-3">
               <span className="flex items-center gap-1"><BookOpen size={12} /> {course.lessons} {t('lesson.count')}</span>
@@ -394,7 +428,7 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
                 className="w-full py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
               >
                 <ShoppingCart size={18} />
-                {t('lesson.buyNow')} - {course.price} EGP
+                {t('lesson.buyNow')} - {formatEGP(effectivePrice ?? course.price)}
               </button>
             )}
           </div>
@@ -429,7 +463,7 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
   const isCompleted = completedLessons.has(lesson.id);
   // التقدم الحقيقي في الكورس الحالي فقط (بدون حساب دروس الكورسات الأخرى)
   const completedInThisCourse = allLessons.filter(item => completedLessons.has(item.lesson.id)).length;
-  const progressPercent = Math.round((completedInThisCourse / allLessons.length) * 100);
+  const progressPercent = Math.min(100, Math.round((completedInThisCourse / allLessons.length) * 100));
 
   const markComplete = () => {
     setCompletedLessons(prev => new Set([...prev, lesson.id]));

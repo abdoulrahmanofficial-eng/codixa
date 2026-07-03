@@ -2,21 +2,25 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserProfile, Transaction } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
+import { getDynamicCourses, updateCoursePrice as updateDynamicPrice, type BackendCourse } from '../lib/courseService';
+import { setCoursePrice, getAllPriceOverrides, removeCoursePrice } from '../lib/priceService';
+import { courses as staticCourses } from '../data/courses';
+import SeedCoursePanel from './SeedCoursePanel';
 import {
-  Users, Wallet, ShoppingCart, CheckCircle, XCircle, TrendingUp, Loader2, ArrowLeft,
+  Users, ShoppingCart, CheckCircle, XCircle, TrendingUp, Loader2, ArrowLeft,
   Search, Shield, ShieldOff, UserCog, Activity, CreditCard, BookOpen, Star, DollarSign,
-  Calendar, Filter, RefreshCw, ChevronDown, ChevronUp, MoreVertical, Plus
+  Calendar, Filter, RefreshCw, ChevronDown, ChevronUp, Plus, Minus, Edit3, Tag
 } from 'lucide-react';
 
 interface AdminDashboardProps {
   setCurrentPage: (page: string) => void;
 }
 
-type AdminTab = 'overview' | 'users' | 'transactions' | 'settings';
+type AdminTab = 'overview' | 'users' | 'transactions' | 'courses' | 'settings';
 
 export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) {
   const { t, lang } = useI18n();
-  const { isAdmin, getAllUsers, getAllTransactions, approveDeposit, rejectDeposit, setAdminRole, addUserBalance } = useAuth();
+  const { isAdmin, profile, getAllUsers, getAllTransactions, approveDeposit, rejectDeposit, setAdminRole, addUserBalance, deductUserBalance, transferBalance, createDiscountCode, getAllDiscountCodes, deleteDiscountCode } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +31,19 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [addBalanceUserId, setAddBalanceUserId] = useState<string | null>(null);
   const [addBalanceAmount, setAddBalanceAmount] = useState('');
+  const [deductBalanceUserId, setDeductBalanceUserId] = useState<string | null>(null);
+  const [deductBalanceAmount, setDeductBalanceAmount] = useState('');
+  const [discountCodes, setDiscountCodes] = useState<{ code: string; percentage: number; createdAt: number; active: boolean }[]>([]);
+  const [newCode, setNewCode] = useState('');
+  const [newPercentage, setNewPercentage] = useState('');
+  const [transferFromId, setTransferFromId] = useState<string | null>(null);
+  const [transferToId, setTransferToId] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [dynamicCourses, setDynamicCourses] = useState<BackendCourse[]>([]);
+  const [editingPrice, setEditingPrice] = useState<string | null>(null);
+  const [priceInput, setPriceInput] = useState('');
+  const [priceSaving, setPriceSaving] = useState(false);
+  const [priceOverrides, setPriceOverrides] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -36,9 +53,12 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [allUsers, allTx] = await Promise.all([getAllUsers(), getAllTransactions()]);
+      const [allUsers, allTx, courses, overrides, codes] = await Promise.all([getAllUsers(), getAllTransactions(), getDynamicCourses(), getAllPriceOverrides(), getAllDiscountCodes()]);
       setUsers(allUsers);
       setTransactions(allTx);
+      setDynamicCourses(courses);
+      setPriceOverrides(overrides);
+      setDiscountCodes(codes);
     } catch (err) {
       console.error(err);
     } finally {
@@ -79,6 +99,31 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
     setActionLoading(null);
   };
 
+  const handleDeductBalance = async () => {
+    if (!deductBalanceUserId || !deductBalanceAmount) return;
+    const amount = parseInt(deductBalanceAmount);
+    if (isNaN(amount) || amount <= 0) return;
+    setActionLoading(`deduct-${deductBalanceUserId}`);
+    await deductUserBalance(deductBalanceUserId, amount);
+    setDeductBalanceUserId(null);
+    setDeductBalanceAmount('');
+    await loadData();
+    setActionLoading(null);
+  };
+
+  const handleTransferBalance = async () => {
+    if (!transferFromId || !transferToId || !transferAmount) return;
+    const amount = parseInt(transferAmount);
+    if (isNaN(amount) || amount <= 0 || transferFromId === transferToId) return;
+    setActionLoading(`transfer-${transferFromId}`);
+    await transferBalance(transferFromId, transferToId, amount);
+    setTransferFromId(null);
+    setTransferToId('');
+    setTransferAmount('');
+    await loadData();
+    setActionLoading(null);
+  };
+
   const pendingTx = useMemo(() => transactions.filter(tx => tx.status === 'pending'), [transactions]);
   const totalBalance = useMemo(() => users.reduce((sum, u) => sum + (u.wallet?.balance || 0), 0), [users]);
   const totalRevenue = useMemo(() =>
@@ -106,6 +151,12 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
     else if (txFilter === 'failed') list = list.filter(tx => tx.status === 'failed');
     return list;
   }, [transactions, txFilter]);
+
+  const allCourses = useMemo(() => {
+    const staticMapped = staticCourses.map(c => ({ id: c.id, title: c.title, price: c.price, free: c.free, type: 'static' as const, icon: c.icon }));
+    const dynamicMapped = dynamicCourses.map(c => ({ id: c.id, title: c.title, price: c.price, free: c.free ?? true, type: 'dynamic' as const, icon: c.icon || '📚' }));
+    return [...staticMapped, ...dynamicMapped];
+  }, [staticCourses, dynamicCourses]);
 
   const getUserName = (userId: string) => users.find(u => u.uid === userId)?.name || 'Unknown';
   const getUserTransactions = (userId: string) => transactions.filter(tx => tx.userId === userId);
@@ -142,6 +193,7 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
     { id: 'overview', label: lang === 'ar' ? 'نظرة عامة' : 'Overview', icon: <Activity size={16} /> },
     { id: 'users', label: lang === 'ar' ? 'المستخدمين' : 'Users', icon: <Users size={16} />, badge: users.length },
     { id: 'transactions', label: lang === 'ar' ? 'المعاملات' : 'Transactions', icon: <CreditCard size={16} />, badge: pendingTx.length },
+    { id: 'courses', label: lang === 'ar' ? 'الكورسات' : 'Courses', icon: <BookOpen size={16} />, badge: staticCourses.length + dynamicCourses.length },
     { id: 'settings', label: lang === 'ar' ? 'الإعدادات' : 'Settings', icon: <UserCog size={16} /> },
   ];
 
@@ -286,12 +338,21 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                 </div>
 
                 {/* Quick Stats */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="glass rounded-2xl p-5 border border-white/10">
                     <div className="text-slate-400 text-sm mb-1">{lang === 'ar' ? 'إجمالي المشتريات' : 'Total Purchases'}</div>
                     <div className="text-2xl font-black text-white">{totalPurchases}</div>
                     <div className="mt-3 w-full bg-white/5 rounded-full h-2 overflow-hidden">
                       <div className="bg-gradient-to-r from-green-500 to-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, totalPurchases)}%` }} />
+                    </div>
+                  </div>
+                  <div className="glass rounded-2xl p-5 border border-white/10">
+                    <div className="text-slate-400 text-sm mb-1">{lang === 'ar' ? 'عدد الكورسات' : 'Total Courses'}</div>
+                    <div className="text-2xl font-black text-white">{staticCourses.length + dynamicCourses.length}</div>
+                    <div className="mt-3 flex gap-2 text-xs text-slate-500">
+                      <span>{staticCourses.length} {lang === 'ar' ? 'ثابت' : 'static'}</span>
+                      <span>+</span>
+                      <span>{dynamicCourses.length} {lang === 'ar' ? 'متحرك' : 'dynamic'}</span>
                     </div>
                   </div>
                   <div className="glass rounded-2xl p-5 border border-white/10">
@@ -372,6 +433,38 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-all text-xs font-bold disabled:opacity-50">
                                 {actionLoading === `balance-${u.uid}` ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                                 {lang === 'ar' ? 'إضافة رصيد' : 'Add Balance'}
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2 mb-3">
+                              <input type="number" min="1" placeholder={lang === 'ar' ? 'الخصم...' : 'Deduct...'}
+                                value={deductBalanceUserId === u.uid ? deductBalanceAmount : ''}
+                                onChange={e => { setDeductBalanceUserId(u.uid); setDeductBalanceAmount(e.target.value); }}
+                                className="w-28 bg-white/5 border border-white/10 rounded-lg py-1.5 px-3 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-red-500 transition-colors" />
+                              <button onClick={handleDeductBalance}
+                                disabled={deductBalanceUserId !== u.uid || !deductBalanceAmount || actionLoading === `deduct-${u.uid}`}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all text-xs font-bold disabled:opacity-50">
+                                {actionLoading === `deduct-${u.uid}` ? <Loader2 size={12} className="animate-spin" /> : <Minus size={12} />}
+                                {lang === 'ar' ? 'خصم رصيد' : 'Deduct Balance'}
+                              </button>
+                              </div>
+                            <div className="flex items-center gap-2 mb-3">
+                              <select value={transferFromId === u.uid ? transferToId : ''}
+                                onChange={e => { setTransferFromId(u.uid); setTransferToId(e.target.value); }}
+                                className="w-32 bg-white/5 border border-white/10 rounded-lg py-1.5 px-3 text-white text-xs focus:outline-none focus:border-indigo-500">
+                                <option value="">{lang === 'ar' ? 'المستلم...' : 'Recipient...'}</option>
+                                {users.filter(other => other.uid !== u.uid).map(other => (
+                                  <option key={other.uid} value={other.uid} className="bg-slate-800">{other.name || other.email || other.uid}</option>
+                                ))}
+                              </select>
+                              <input type="number" min="1" placeholder={lang === 'ar' ? 'المبلغ...' : 'Amount...'}
+                                value={transferFromId === u.uid ? transferAmount : ''}
+                                onChange={e => { setTransferFromId(u.uid); setTransferAmount(e.target.value); }}
+                                className="w-20 bg-white/5 border border-white/10 rounded-lg py-1.5 px-3 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-yellow-500 transition-colors" />
+                              <button onClick={handleTransferBalance}
+                                disabled={transferFromId !== u.uid || !transferToId || !transferAmount || actionLoading === `transfer-${u.uid}`}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-all text-xs font-bold disabled:opacity-50">
+                                {actionLoading === `transfer-${u.uid}` ? <Loader2 size={12} className="animate-spin" /> : <span>⇄</span>}
+                                {lang === 'ar' ? 'تحويل' : 'Transfer'}
                               </button>
                             </div>
                             {getUserTransactions(u.uid).length > 0 && (
@@ -486,6 +579,159 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                     </table>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* ── Courses Tab ── */}
+            {tab === 'courses' && (
+              <div className="space-y-6">
+                <SeedCoursePanel />
+
+                {loading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 size={32} className="animate-spin text-indigo-400" />
+                  </div>
+                ) : (<>
+                {/* All Courses (Static + Dynamic) with Price Override */}
+                <div className="glass rounded-2xl border border-white/10 overflow-hidden">
+                  <div className="p-4 border-b border-white/10">
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                      <Tag size={18} className="text-yellow-400" />
+                      {lang === 'ar' ? 'أسعار جميع الكورسات' : 'All Course Prices'}
+                    </h3>
+                    <p className="text-slate-400 text-xs mt-1">
+                      {lang === 'ar'
+                        ? 'تعديل السعر هنا سيخزن التغيير في قاعدة البيانات ويتجاوز السعر الافتراضي.'
+                        : 'Editing price here stores the override in the database, overriding the default price.'}
+                    </p>
+                  </div>
+                  <div className="divide-y divide-white/5">
+                    {allCourses.map(c => {
+                      const effectivePrice = priceOverrides[c.id] ?? c.price;
+                      const isOverridden = priceOverrides[c.id] !== undefined;
+                      return (
+                        <div key={c.id} className="flex items-center gap-4 p-4 hover:bg-white/5 transition-all">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center text-xl flex-shrink-0">
+                            {c.icon || '📚'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-white font-semibold text-sm truncate">{c.title}</div>
+                            <div className="text-slate-400 text-xs">
+                              {c.type === 'static' ? (lang === 'ar' ? 'ثابت' : 'Static') : (lang === 'ar' ? 'ديناميكي' : 'Dynamic')}
+                              {isOverridden ? <span className="text-yellow-400 mr-2"> • {lang === 'ar' ? 'معدل' : 'Overridden'}</span> : ''}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            {editingPrice === c.id ? (
+                              <div className="flex items-center gap-2">
+                                <input type="number" min="0" value={priceInput}
+                                  onChange={e => setPriceInput(e.target.value)}
+                                  className="w-20 bg-white/5 border border-white/10 rounded-lg py-1.5 px-2 text-white text-sm focus:outline-none focus:border-indigo-500" />
+                                <button onClick={async () => {
+                                  const price = parseInt(priceInput);
+                                  if (isNaN(price) || price < 0) return;
+                                  setPriceSaving(true);
+                                  await setCoursePrice(c.id, price, profile?.uid || '');
+                                  await loadData();
+                                  setPriceSaving(false);
+                                  setEditingPrice(null);
+                                }} disabled={priceSaving}
+                                  className="px-2 py-1 rounded-lg bg-green-500/20 text-green-400 text-xs font-bold hover:bg-green-500/30 disabled:opacity-50">
+                                  {priceSaving ? <Loader2 size={12} className="animate-spin" /> : (lang === 'ar' ? 'حفظ' : 'Save')}
+                                </button>
+                                <button onClick={() => setEditingPrice(null)}
+                                  className="px-2 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs font-bold hover:bg-red-500/30">
+                                  X
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="text-right">
+                                  <div className={`font-bold ${isOverridden ? 'text-yellow-400' : 'text-white'}`}>{effectivePrice} EGP</div>
+                                  {isOverridden && (
+                                    <button onClick={async () => {
+                                      setPriceSaving(true);
+                                      await setCoursePrice(c.id, effectivePrice, profile?.uid || '');
+                                      await removeCoursePrice(c.id);
+                                      await loadData();
+                                      setPriceSaving(false);
+                                    }} className="text-xs text-red-400 hover:text-red-300 transition-all">
+                                      {lang === 'ar' ? 'إعادة افتراضي' : 'Reset default'}
+                                    </button>
+                                  )}
+                                </div>
+                                <button onClick={() => { setEditingPrice(c.id); setPriceInput(String(effectivePrice)); }}
+                                  className="p-2 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-all"
+                                  title={lang === 'ar' ? 'تعديل السعر' : 'Edit price'}>
+                                  <Edit3 size={14} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Discount Codes */}
+                <div className="glass rounded-2xl border border-white/10 overflow-hidden">
+                  <div className="p-4 border-b border-white/10">
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                      <Tag size={18} className="text-green-400" />
+                      {lang === 'ar' ? 'أكواد الخصم' : 'Discount Codes'}
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-center gap-3 mb-4">
+                      <input type="text" value={newCode} onChange={e => setNewCode(e.target.value.toUpperCase())}
+                        placeholder={lang === 'ar' ? 'الكود...' : 'Code...'}
+                        className="w-32 bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-green-500 transition-colors" />
+                      <input type="number" min="1" max="100" value={newPercentage} onChange={e => setNewPercentage(e.target.value)}
+                        placeholder={lang === 'ar' ? 'الخصم %' : 'Discount %'}
+                        className="w-24 bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-green-500 transition-colors" />
+                      <button onClick={async () => {
+                        if (!newCode || !newPercentage) return;
+                        const pct = parseInt(newPercentage);
+                        if (isNaN(pct) || pct < 1 || pct > 100) return;
+                        await createDiscountCode(newCode, pct);
+                        setNewCode('');
+                        setNewPercentage('');
+                        const codes = await getAllDiscountCodes();
+                        setDiscountCodes(codes);
+                      }} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-bold text-sm hover:opacity-90 transition-all">
+                        {lang === 'ar' ? 'إضافة' : 'Add'}
+                      </button>
+                    </div>
+                    {discountCodes.length === 0 ? (
+                      <p className="text-slate-400 text-sm text-center py-4">{lang === 'ar' ? 'لا توجد أكواد خصم' : 'No discount codes'}</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {discountCodes.map(dc => (
+                          <div key={dc.code} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
+                            <div>
+                              <span className="text-white font-bold text-sm font-mono">{dc.code}</span>
+                              <span className="mr-3 text-green-400 font-bold text-sm">{dc.percentage}%</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs px-2 py-0.5 rounded ${dc.active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {dc.active ? (lang === 'ar' ? 'نشط' : 'Active') : (lang === 'ar' ? 'غير نشط' : 'Inactive')}
+                              </span>
+                              <button onClick={async () => {
+                                await deleteDiscountCode(dc.code);
+                                const codes = await getAllDiscountCodes();
+                                setDiscountCodes(codes);
+                              }} className="p-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all">
+                                <XCircle size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                </>)}
               </div>
             )}
 

@@ -1,9 +1,9 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { courses } from '../data/courses';
 import { useBilingualContent } from '../i18n/content';
-import { Award, Download, Printer, ArrowLeft } from 'lucide-react';
+import { Award, Printer, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface CertificatePageProps {
@@ -31,51 +31,7 @@ export default function CertificatePage({ courseId, setCurrentPage }: Certificat
     : new Date().toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    printWindow.document.write(`
-      <html>
-      <head>
-        <title>${t('cert.title')} - ${course?.title || courseId}</title>
-        <style>
-          @page { size: landscape; margin: 20mm; }
-          body { margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f172a; }
-          .cert { width: 900px; background: linear-gradient(135deg, #1e1b4b, #0f172a); border: 4px solid #818cf8; border-radius: 24px; padding: 60px; text-align: center; position: relative; overflow: hidden; }
-          .cert::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 0%, rgba(129,140,248,0.15), transparent 70%); }
-          .cert-content { position: relative; }
-          .badge { font-size: 72px; }
-          h1 { font-size: 36px; color: #f8fafc; margin: 16px 0; }
-          .sub { color: #94a3b8; font-size: 16px; letter-spacing: 2px; text-transform: uppercase; }
-          .name { font-size: 42px; color: #818cf8; font-weight: 900; margin: 16px 0; }
-          .course-name { font-size: 28px; color: #fbbf24; font-weight: 700; margin: 8px 0; }
-          .date { color: #64748b; font-size: 14px; margin-top: 32px; }
-          .footer { margin-top: 40px; padding-top: 24px; border-top: 1px solid #334155; display: flex; justify-content: space-between; color: #64748b; font-size: 12px; }
-          .dir-rtl { direction: rtl; }
-          .dir-ltr { direction: ltr; }
-        </style>
-      </head>
-      <body>
-        <div class="cert dir-${lang === 'ar' ? 'rtl' : 'ltr'}">
-          <div class="cert-content">
-            <div class="badge">${course?.icon || '🎓'}</div>
-            <h1>${t('cert.title')}</h1>
-            <p class="sub">${t('cert.subtitle')}</p>
-            <p class="name">${userName}</p>
-            <p class="sub">${t('cert.forCompleting')}</p>
-            <p class="course-name">${course?.title || courseId}</p>
-            <p class="date">${t('cert.date')}: ${dateStr}</p>
-            <p style="color:#475569;font-size:11px;margin-top:8px;">${t('cert.code')}: ${certId}</p>
-            <div class="footer">
-              <span style="font-weight:700;color:#818cf8;">Codixa</span>
-              <span>© ${new Date().getFullYear()} Codixa</span>
-            </div>
-          </div>
-        </div>
-        <script>window.print();<\/script>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
+    window.print();
   };
 
   if (!course) {
@@ -93,32 +49,25 @@ export default function CertificatePage({ courseId, setCurrentPage }: Certificat
   }
 
   return (
-    <div className="min-h-screen pt-20 pb-10 px-4 sm:px-6">
+    <div className="min-h-screen pt-20 pb-10 px-4 sm:px-6 print-area">
       <div className="max-w-4xl mx-auto">
-        {/* Back */}
+        {/* Back - hidden when printing */}
         <button
           onClick={() => setCurrentPage('achievements')}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-6 text-sm font-semibold"
+          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-6 text-sm font-semibold no-print"
         >
           <ArrowLeft size={16} /> {t('common.back')}
         </button>
 
-        {/* Congrats Message */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
-        >
+        {/* Congrats Message - hidden when printing */}
+        <div className="text-center mb-8 no-print">
           <div className="text-6xl mb-4">🎉</div>
           <h1 className="text-3xl sm:text-5xl font-black text-white mb-2">{t('cert.congrats')}</h1>
           <p className="text-slate-400 text-lg max-w-xl mx-auto">{t('cert.desc')}</p>
-        </motion.div>
+        </div>
 
         {/* Certificate */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
+        <div
           ref={certRef}
           className="certificate-border relative overflow-hidden"
           dir={lang === 'ar' ? 'rtl' : 'ltr'}
@@ -171,10 +120,10 @@ export default function CertificatePage({ courseId, setCurrentPage }: Certificat
               <span className="text-slate-600 text-xs">© {new Date().getFullYear()} Codixa</span>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-center gap-4 mt-8">
+        {/* Actions - hidden when printing */}
+        <div className="flex items-center justify-center gap-4 mt-8 no-print">
           <button
             onClick={handlePrint}
             className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-lg shadow-indigo-500/20"

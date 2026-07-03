@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { ArrowLeft, Wallet, Plus, Clock, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { formatEGP } from '../utils/format';
 
 interface WalletPageProps {
   setCurrentPage: (page: string) => void;
@@ -9,8 +10,13 @@ interface WalletPageProps {
 
 export default function WalletPage({ setCurrentPage }: WalletPageProps) {
   const { t, lang } = useI18n();
-  const { profile, user, addTransaction } = useAuth();
+  const { profile, user, addTransaction, transferBalance, findUserByEmail } = useAuth();
   const [showTopUp, setShowTopUp] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferEmail, setTransferEmail] = useState('');
+  const [transferAmt, setTransferAmt] = useState('');
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferMsg, setTransferMsg] = useState('');
   const [amount, setAmount] = useState('');
   const [paymentCode, setPaymentCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,6 +39,31 @@ export default function WalletPage({ setCurrentPage }: WalletPageProps) {
   const transactions = profile?.wallet?.transactions
     ? [...profile.wallet.transactions].reverse()
     : [];
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTransferMsg('');
+    const amt = parseInt(transferAmt);
+    if (!amt || amt <= 0) { setTransferMsg(lang === 'ar' ? 'المبلغ غير صحيح' : 'Invalid amount'); return; }
+    if (!transferEmail.trim()) { setTransferMsg(lang === 'ar' ? 'البريد الإلكتروني مطلوب' : 'Email is required'); return; }
+    if (!user?.uid) return;
+    setTransferLoading(true);
+    try {
+      const recipient = await findUserByEmail(transferEmail.trim());
+      if (!recipient) { setTransferMsg(lang === 'ar' ? 'المستخدم غير موجود — تأكد من البريد الإلكتروني أو الاسم' : 'User not found — check the email or name'); setTransferLoading(false); return; }
+      if (recipient.uid === user.uid) { setTransferMsg(lang === 'ar' ? 'لا يمكن التحويل لنفسك' : 'Cannot transfer to yourself'); setTransferLoading(false); return; }
+      await transferBalance(user.uid, recipient.uid, amt);
+      setTransferEmail('');
+      setTransferAmt('');
+      setShowTransfer(false);
+      setTransferMsg(lang === 'ar' ? 'تم التحويل بنجاح' : 'Transfer successful');
+      setTimeout(() => setTransferMsg(''), 3000);
+    } catch (e) {
+      setTransferMsg(lang === 'ar' ? 'فشل التحويل' : 'Transfer failed');
+    } finally {
+      setTransferLoading(false);
+    }
+  };
 
   const pendingTransactions = transactions.filter(tx => tx.status === 'pending');
 
@@ -116,16 +147,25 @@ export default function WalletPage({ setCurrentPage }: WalletPageProps) {
             <div className="flex-1 text-center sm:text-right">
               <p className="text-slate-400 text-sm mb-1">{t('wallet.balance')}</p>
               <p className="text-4xl sm:text-5xl font-black text-white">
-                {profile?.wallet?.balance || 0} <span className="text-lg text-slate-400 font-bold">EGP</span>
+                {formatEGP(profile?.wallet?.balance || 0)}
               </p>
             </div>
-            <button
-              onClick={() => setShowTopUp(!showTopUp)}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold hover:opacity-90 transition-all hover:scale-105"
-            >
-              <Plus size={18} />
-              {t('wallet.topUp')}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowTopUp(!showTopUp)}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold hover:opacity-90 transition-all hover:scale-105"
+              >
+                <Plus size={18} />
+                {t('wallet.topUp')}
+              </button>
+              <button
+                onClick={() => setShowTransfer(!showTransfer)}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-bold hover:opacity-90 transition-all hover:scale-105"
+              >
+                ⇄
+                {lang === 'ar' ? 'تحويل' : 'Transfer'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -212,6 +252,44 @@ export default function WalletPage({ setCurrentPage }: WalletPageProps) {
           </div>
         )}
 
+        {/* Transfer Form */}
+        {showTransfer && (
+          <div className="glass rounded-2xl p-6 border border-purple-500/20 mb-6">
+            <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+              ⇄
+              <span>{lang === 'ar' ? 'تحويل رصيد' : 'Transfer Balance'}</span>
+            </h3>
+            <form onSubmit={handleTransfer} className="space-y-4">
+              <div>
+                <label className="block text-slate-300 text-sm font-semibold mb-2">
+                  {lang === 'ar' ? 'البريد الإلكتروني أو اسم المستخدم' : 'Recipient Email or Name'}
+                </label>
+                <input type="text" value={transferEmail} onChange={e => setTransferEmail(e.target.value)}
+                  placeholder={lang === 'ar' ? 'البريد الإلكتروني أو الاسم...' : 'Email or name...'}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500 transition-colors" />
+              </div>
+              <div>
+                <label className="block text-slate-300 text-sm font-semibold mb-2">
+                  {lang === 'ar' ? 'المبلغ' : 'Amount'}
+                </label>
+                <input type="number" min="1" value={transferAmt} onChange={e => setTransferAmt(e.target.value)}
+                  placeholder={lang === 'ar' ? 'المبلغ...' : 'Amount...'}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500 transition-colors" />
+              </div>
+              {transferMsg && (
+                <div className={`p-3 rounded-xl text-sm text-center ${transferMsg.includes('نجاح') || transferMsg.includes('successful') ? 'bg-green-500/10 text-green-400 border border-green-500/30' : 'bg-red-500/10 text-red-400 border border-red-500/30'}`}>
+                  {transferMsg}
+                </div>
+              )}
+              <button type="submit" disabled={transferLoading}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-bold hover:opacity-90 transition-all disabled:opacity-50">
+                {transferLoading ? <Loader2 size={18} className="animate-spin" /> : '⇄'}
+                {lang === 'ar' ? 'تحويل' : 'Transfer'}
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* Transactions */}
         <div className="glass rounded-2xl p-6 border border-white/10">
           <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
@@ -243,7 +321,7 @@ export default function WalletPage({ setCurrentPage }: WalletPageProps) {
                   </div>
                   <div className="text-right">
                     <div className={`font-bold text-sm ${tx.type === 'deposit' ? 'text-green-400' : 'text-red-400'}`}>
-                      {tx.type === 'deposit' ? '+' : '-'}{tx.amount} EGP
+                      {tx.type === 'deposit' ? '+' : '-'}{formatEGP(tx.amount)}
                     </div>
                     <div className="flex items-center gap-1 text-xs text-slate-500">
                       {statusIcons[tx.status]}

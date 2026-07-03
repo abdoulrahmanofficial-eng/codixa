@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion';
-import { Code2, Globe, User, Wallet, Menu } from 'lucide-react';
+import { Code2, User, Wallet, Menu } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
+import { formatEGP } from '../utils/format';
+import { fmt } from '../lib/format';
 
 interface HeaderProps {
   currentPage: string;
@@ -19,14 +21,14 @@ export default function Header({ currentPage, setCurrentPage, onMenuClick }: Hea
       initial={{ y: -80 }}
       animate={{ y: 0 }}
       transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-      className="fixed top-0 right-0 left-0 z-40 h-14 glass border-b border-white/10 rounded-b-2xl"
+      className="fixed top-0 right-0 left-0 z-40 h-16 glass border-b border-white/10 rounded-b-2xl"
     >
       <div className="h-full max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-3">
         {/* Right: Hamburger + Logo */}
         <div className="flex items-center gap-3">
           <button
             onClick={onMenuClick}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 transition-all"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 transition-all"
           >
             <Menu size={18} />
           </button>
@@ -41,23 +43,15 @@ export default function Header({ currentPage, setCurrentPage, onMenuClick }: Hea
           </button>
         </div>
 
-        {/* Left: Language + Wallet + Auth */}
+        {/* Right side: Wallet + Auth */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all"
-          >
-            <Globe size={15} />
-            <span className="hidden sm:inline">{t('nav.langToggle')}</span>
-          </button>
-
           {user && (
             <button
               onClick={() => setCurrentPage('wallet')}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm font-semibold text-yellow-400 hover:bg-white/10 transition-all"
+              className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold text-yellow-400 hover:bg-white/10 transition-all"
             >
               <Wallet size={15} />
-              <span>{profile?.wallet?.balance || 0} EGP</span>
+              <span>{formatEGP(profile?.wallet?.balance || 0)}</span>
             </button>
           )}
 
@@ -65,7 +59,7 @@ export default function Header({ currentPage, setCurrentPage, onMenuClick }: Hea
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setCurrentPage('profile')}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all"
+                className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all"
               >
                 {profile?.avatar ? (
                   <img src={profile.avatar} alt="" className="w-6 h-6 rounded-lg object-cover" />

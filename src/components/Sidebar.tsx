@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Home, Map, Trophy, Code2, X, LogOut, Wallet, User, Globe, Zap, Shield, Settings, Terminal } from 'lucide-react';
+import { BookOpen, Home, Map, Trophy, Code2, X, LogOut, Wallet, User, Globe, Zap, Shield, Settings, Terminal, Info } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
+import { fmt } from '../lib/format';
 
 interface SidebarProps {
   currentPage: string;
@@ -138,7 +139,7 @@ export default function Sidebar({ currentPage, setCurrentPage, open, setOpen }: 
                       {user.displayName || user.email?.split('@')[0]}
                     </div>
                     <div className="text-indigo-400 text-xs font-semibold">
-                      {profile?.wallet?.balance || 0} EGP
+                      {fmt(profile?.wallet?.balance)} EGP
                     </div>
                   </div>
                 </div>
@@ -192,7 +193,7 @@ export default function Sidebar({ currentPage, setCurrentPage, open, setOpen }: 
                     <Wallet size={20} className="text-yellow-400" />
                     {t('nav.wallet')}
                     <span className="mr-auto text-yellow-400 font-bold">
-                      {profile?.wallet?.balance || 0} EGP
+                      {fmt(profile?.wallet?.balance)} EGP
                     </span>
                   </button>
                 </motion.div>
@@ -274,6 +275,34 @@ export default function Sidebar({ currentPage, setCurrentPage, open, setOpen }: 
                   {t('nav.mobileCta')}
                 </motion.button>
               )}
+
+              {/* قسم حول المنصة */}
+              <motion.div
+                custom={13}
+                variants={itemVariants}
+                initial="hidden"
+                animate="visible"
+                className="w-full mt-4 pt-4 border-t border-white/10"
+              >
+                <h4 className="text-slate-400 text-xs font-bold uppercase mb-3 px-1">{t('nav.about')}</h4>
+                <div className="space-y-2">
+                  <motion.button
+                    custom={14}
+                    variants={itemVariants}
+                    initial="hidden"
+                    animate="visible"
+                    onClick={() => { setCurrentPage('about'); setOpen(false); }}
+                    className={`w-full text-right flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${
+                      currentPage === 'about'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
+                        : 'text-slate-400 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <Info size={18} />
+                    <span>{t('nav.aboutPlatform')}</span>
+                  </motion.button>
+                </div>
+              </motion.div>
 
             </div>
           </motion.aside>
