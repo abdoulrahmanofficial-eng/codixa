@@ -1,9 +1,10 @@
 import { Resend } from 'resend'
-import * as admin from 'firebase-admin'
+import { initializeApp, getApps, cert } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
+if (!getApps().length) {
+  initializeApp({
+    credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
       return Response.json({ error: 'APP_URL not configured' }, { status: 500 })
     }
 
-    const resetLink = await admin.auth().generatePasswordResetLink(email, {
+    const resetLink = await getAuth().generatePasswordResetLink(email, {
       url: `${appUrl}/auth`,
       handleCodeInApp: true,
     })
