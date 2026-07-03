@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { Mail, Lock, User, ArrowLeft, Eye, EyeOff, Code2, Loader2, CheckCircle } from 'lucide-react';
-import { generatePasswordResetLink, confirmPasswordReset } from 'firebase/auth';
+import { confirmPasswordReset } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useSearchParams } from 'react-router-dom';
 
@@ -77,16 +77,10 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
     setError('');
     setResetLoading(true);
     try {
-      const actionCodeSettings = {
-        url: window.location.origin + '/auth',
-        handleCodeInApp: true,
-      };
-      const resetLink = await generatePasswordResetLink(auth, email, actionCodeSettings);
-
       const res = await fetch('/api/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, resetLink }),
+        body: JSON.stringify({ email }),
       });
 
       if (!res.ok) {
@@ -96,10 +90,11 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
 
       setResetSent(true);
     } catch (err: any) {
-      const code = err.code || '';
-      if (code === 'auth/invalid-email') setError(t('auth.error.invalidEmail'));
-      else if (code === 'auth/user-not-found') setError(t('auth.error.userNotFound'));
-      else setError(err.message || t('auth.error.default'));
+      if (err.message?.includes('auth/user-not-found') || err.message?.includes('mailnotfound')) {
+        setError(t('auth.error.userNotFound'));
+      } else {
+        setError(err.message || t('auth.error.default'));
+      }
     } finally {
       setResetLoading(false);
     }

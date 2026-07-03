@@ -1,16 +1,37 @@
 import { Resend } from 'resend'
+import * as admin from 'firebase-admin'
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+  })
+}
 
 export async function POST(req: Request) {
   try {
-    const { email, resetLink } = await req.json()
-    if (!email || !resetLink) {
-      return Response.json({ error: 'Missing email or resetLink' }, { status: 400 })
+    const { email } = await req.json()
+    if (!email) {
+      return Response.json({ error: 'Missing email' }, { status: 400 })
     }
 
     const apiKey = process.env.RESEND_API_KEY
     if (!apiKey) {
       return Response.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 })
     }
+
+    const appUrl = process.env.APP_URL
+    if (!appUrl) {
+      return Response.json({ error: 'APP_URL not configured' }, { status: 500 })
+    }
+
+    const resetLink = await admin.auth().generatePasswordResetLink(email, {
+      url: `${appUrl}/auth`,
+      handleCodeInApp: true,
+    })
 
     const resend = new Resend(apiKey)
 
