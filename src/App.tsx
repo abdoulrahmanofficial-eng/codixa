@@ -151,7 +151,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={<RHome />} />
+      <Route path="/" element={<Navigate to="/courses" replace />} />
       <Route path="/courses" element={<RCourses />} />
       <Route path="/roadmap" element={<RRoadmap />} />
       <Route path="/achievements" element={<RAchievements />} />
