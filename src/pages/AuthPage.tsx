@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { Mail, Lock, User, ArrowLeft, Eye, EyeOff, Code2, Loader2, CheckCircle } from 'lucide-react';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../lib/firebase';
 
 interface AuthPageProps {
   setCurrentPage: (page: string) => void;
@@ -11,7 +9,7 @@ interface AuthPageProps {
 
 export default function AuthPage({ setCurrentPage }: AuthPageProps) {
   const { t, lang } = useI18n();
-  const { login, register, user } = useAuth();
+  const { login, register, user, resetPassword } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -65,10 +63,9 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
     setError('');
     setResetLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email);
+      await resetPassword(email);
       setResetSent(true);
     } catch (err: any) {
-      console.error('Password reset error:', err);
       const code = err.code || '';
       if (code === 'auth/invalid-email') setError(t('auth.error.invalidEmail'));
       else if (code === 'auth/user-not-found') setError(t('auth.error.userNotFound'));
