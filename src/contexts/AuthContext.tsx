@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   updateProfile,
+  sendPasswordResetEmail,
   User,
 } from 'firebase/auth';
 import { ref, get, set, update, push, child } from 'firebase/database';
@@ -71,6 +72,7 @@ interface AuthContextType {
   updateProfileData: (data: { name?: string; avatar?: string }) => Promise<void>;
   completeLesson: (lessonId: string) => Promise<void>;
   setLastCourse: (courseId: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -101,6 +103,7 @@ const AuthContext = createContext<AuthContextType>({
   completeLesson: async () => {},
   setLastCourse: async () => {},
   setLastLesson: async () => {},
+  resetPassword: async () => {},
   isAdmin: false,
 });
 
@@ -254,6 +257,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await signOut(auth);
     setProfile(null);
+  };
+
+  const resetPasswordFn = async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
   };
 
   const addTransaction = async (tx: Omit<Transaction, 'id' | 'date'>): Promise<string | null> => {
@@ -585,6 +592,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       completeLesson,
       setLastCourse,
       setLastLesson,
+      resetPassword: resetPasswordFn,
       addTransaction,
       approveDeposit,
       rejectDeposit,

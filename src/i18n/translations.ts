@@ -63,6 +63,11 @@ export const translations: Record<string, Record<string, string>> = {
     'auth.protectedTitle': 'هذا المحتوى غير متاح',
     'auth.protectedDesc': 'يجب تسجيل الدخول للوصول إلى هذا المحتوى',
     'auth.loggedInAs': 'مسجل دخول كـ',
+    'auth.forgotPassword': 'نسيت كلمة المرور؟',
+    'auth.resetPassword': 'إعادة تعيين كلمة المرور',
+    'auth.resetPasswordDesc': 'أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة تعيين كلمة المرور',
+    'auth.resetSent': 'تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني',
+    'auth.backToLogin': 'العودة إلى تسجيل الدخول',
 
     // Wallet
     'wallet.title': 'المحفظة',
@@ -438,6 +443,11 @@ export const translations: Record<string, Record<string, string>> = {
     'auth.protectedTitle': 'This content is not available',
     'auth.protectedDesc': 'Please log in to access this content',
     'auth.loggedInAs': 'Logged in as',
+    'auth.forgotPassword': 'Forgot Password?',
+    'auth.resetPassword': 'Reset Password',
+    'auth.resetPasswordDesc': 'Enter your email and we will send you a password reset link',
+    'auth.resetSent': 'Password reset link sent to your email',
+    'auth.backToLogin': 'Back to Login',
 
     // Wallet
     'wallet.title': 'Wallet',

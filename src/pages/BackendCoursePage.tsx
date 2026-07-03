@@ -19,6 +19,9 @@ const cleanTitle = (t: string) => t
   .trim();
 const cleanQuestion = (q: string) => q.replace(/^(الأول|الثاني|الثالث|الرابع|الخامس|السادس|السابع|الثامن|التاسع|العاشر)\s*[\n\-:،,]*\s*/, '').trim();
 
+const stripQuizReview = (content: string) =>
+  content.replace(/(^|\n)# Quiz[\s\S]*?(?=\n# |$)/, '');
+
 function formatInline(text: string): string {
   return text
     .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
@@ -664,7 +667,7 @@ export default function BackendCoursePage({ setCurrentPage }: BackendCoursePageP
                 <Loader2 size={28} className="animate-spin text-indigo-400" />
               </div>
             ) : hasContent ? (
-              <MarkdownRenderer content={lessonContent[currentLessonIndex].content} />
+              <MarkdownRenderer content={stripQuizReview(lessonContent[currentLessonIndex].content)} />
             ) : (
               <p className="text-slate-400 text-center py-8">
                 {lang === 'ar' ? 'جاري تحميل المحتوى...' : 'Loading content...'}
