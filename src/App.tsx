@@ -1,4 +1,4 @@
-import { useState, useRef, createContext, useContext, useEffect, ReactNode } from 'react';
+import { useRef, useCallback, createContext, useContext, useEffect, ReactNode, useState } from 'react';
 import { I18nProvider } from './i18n/I18nContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -37,7 +37,6 @@ const pageMap: Record<string, string> = {
 const noHeaderPaths = ['/lesson', '/auth', '/payment', '/certificate', '/backend-course'];
 
 type NavContextType = {
-  setCurrentPage: (page: string, courseId?: string) => void;
   selectedCourse: string;
   setSelectedCourse: (id: string) => void;
   sidebarOpen: boolean;
@@ -53,31 +52,24 @@ export function useNav() {
 }
 
 function NavProvider({ children }: { children: ReactNode }) {
-  const navigate = useNavigate();
-  const [selectedCourse, setSelectedCourseState] = useState('python');
+  const [selectedCourse, setSelectedCourse] = useState('python');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const selectedCourseRef = useRef('python');
-
-  const setSelectedCourse = (id: string) => {
-    selectedCourseRef.current = id;
-    setSelectedCourseState(id);
-  };
-
-  const setCurrentPage = (page: string, courseId?: string) => {
-    if (page === 'lesson') { navigate(`/lesson/${courseId || selectedCourseRef.current}`); return; }
-    if (page === 'certificate') { navigate(`/certificate/${courseId || selectedCourseRef.current}`); return; }
-    const path = pageMap[page];
-    if (path) navigate(path);
-  };
-
-  return <NavContext.Provider value={{ setCurrentPage, selectedCourse, setSelectedCourse, sidebarOpen, setSidebarOpen }}>{children}</NavContext.Provider>;
+  return <NavContext.Provider value={{ selectedCourse, setSelectedCourse, sidebarOpen, setSidebarOpen }}>{children}</NavContext.Provider>;
 }
 
-function AppShell({ children, showHeader }: { children: ReactNode; showHeader?: boolean }) {
-  const { setCurrentPage, setSidebarOpen, sidebarOpen } = useNav();
+function makeNav(navigate: ReturnType<typeof useNavigate>, selectedCourse: string) {
+  return (page: string, courseId?: string) => {
+    if (page === 'lesson') { navigate(`/lesson/${courseId || selectedCourse}`); return; }
+    if (page === 'certificate') { navigate(`/certificate/${courseId || selectedCourse}`); return; }
+    const p = pageMap[page];
+    if (p) navigate(p);
+  };
+}
+
+function AppShell({ children, showHeader, setCurrentPage, pageName }: { children: ReactNode; showHeader?: boolean; setCurrentPage: (page: string, courseId?: string) => void; pageName: string }) {
+  const { setSidebarOpen, sidebarOpen } = useNav();
   const { pathname } = useLocation();
   const h = showHeader !== undefined ? showHeader : !noHeaderPaths.some(p => pathname.startsWith(p));
-  const pageName = Object.entries(pageMap).find(([, v]) => v === pathname)?.[0] || 'home';
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -92,43 +84,32 @@ function AppShell({ children, showHeader }: { children: ReactNode; showHeader?: 
   );
 }
 
+function RHome() { const n = useNavigate(); const { selectedCourse, setSelectedCourse } = useNav(); const sp = useCallback((p: string, cid?: string) => makeNav(n, selectedCourse)(p, cid), [n, selectedCourse]); return <AppShell setCurrentPage={sp} pageName="home"><HomePage setCurrentPage={sp} setSelectedCourse={setSelectedCourse} /></AppShell>; }
+function RCourses() { const n = useNavigate(); const { selectedCourse, setSelectedCourse } = useNav(); const sp = useCallback((p: string, cid?: string) => makeNav(n, selectedCourse)(p, cid), [n, selectedCourse]); return <AppShell setCurrentPage={sp} pageName="courses"><CoursesPage setCurrentPage={sp} setSelectedCourse={setSelectedCourse} /></AppShell>; }
+function RRoadmap() { const n = useNavigate(); const { selectedCourse, setSelectedCourse } = useNav(); const sp = useCallback((p: string, cid?: string) => makeNav(n, selectedCourse)(p, cid), [n, selectedCourse]); return <AppShell setCurrentPage={sp} pageName="roadmap"><RoadmapPage setCurrentPage={sp} setSelectedCourse={setSelectedCourse} /></AppShell>; }
+function RAchievements() { const n = useNavigate(); const { selectedCourse, setSelectedCourse } = useNav(); const sp = useCallback((p: string, cid?: string) => makeNav(n, selectedCourse)(p, cid), [n, selectedCourse]); return <AppShell setCurrentPage={sp} pageName="achievements"><AchievementsPage setCurrentPage={sp} setSelectedCourse={setSelectedCourse} /></AppShell>; }
+function RAuth() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell showHeader={false} setCurrentPage={sp} pageName="auth"><AuthPage setCurrentPage={sp} /></AppShell>; }
+function RWallet() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="wallet"><WalletPage setCurrentPage={sp} /></AppShell>; }
+function RPayment() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell showHeader={false} setCurrentPage={sp} pageName="payment"><PaymentPage setCurrentPage={sp} /></AppShell>; }
+function RPlayground() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="playground"><PlaygroundPage /></AppShell>; }
+function RProfile() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="profile"><ProfilePage /></AppShell>; }
+function RAbout() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="about"><AboutPage setCurrentPage={sp} /></AppShell>; }
+function RAdmin() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="admin"><AdminDashboard setCurrentPage={sp} /></AppShell>; }
+function RBackend() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell showHeader={false} setCurrentPage={sp} pageName="backend-course"><BackendCoursePage setCurrentPage={sp} /></AppShell>; }
+
 function LessonRoute() {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const setCurrentPage = (page: string, id?: string) => {
-    if (page === 'lesson') { navigate(`/lesson/${id || courseId}`); return; }
-    if (page === 'certificate') { navigate(`/certificate/${id || courseId}`); return; }
-    const path = pageMap[page];
-    if (path) navigate(path);
-  };
-  return <div className="min-h-screen bg-slate-900"><LessonPage selectedCourse={courseId || 'python'} setCurrentPage={setCurrentPage} /></div>;
+  const sp = useCallback((page: string, id?: string) => makeNav(navigate, courseId || 'python')(page, id), [navigate, courseId]);
+  return <div className="min-h-screen bg-slate-900"><LessonPage selectedCourse={courseId || 'python'} setCurrentPage={sp} /></div>;
 }
 
 function CertRoute() {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const setCurrentPage = (page: string, id?: string) => {
-    if (page === 'lesson') { navigate(`/lesson/${id || courseId}`); return; }
-    if (page === 'certificate') { navigate(`/certificate/${id || courseId}`); return; }
-    const path = pageMap[page];
-    if (path) navigate(path);
-  };
-  return <div className="min-h-screen bg-slate-900"><CertificatePage courseId={courseId || 'python'} setCurrentPage={setCurrentPage} /></div>;
+  const sp = useCallback((page: string, id?: string) => makeNav(navigate, courseId || 'python')(page, id), [navigate, courseId]);
+  return <div className="min-h-screen bg-slate-900"><CertificatePage courseId={courseId || 'python'} setCurrentPage={sp} /></div>;
 }
-
-// Route wrapper components - each creates nav functions from context and renders the actual page
-function RHome() { const n = useNav(); return <AppShell><HomePage setCurrentPage={n.setCurrentPage} setSelectedCourse={n.setSelectedCourse} /></AppShell>; }
-function RCourses() { const n = useNav(); return <AppShell><CoursesPage setCurrentPage={n.setCurrentPage} setSelectedCourse={n.setSelectedCourse} /></AppShell>; }
-function RRoadmap() { const n = useNav(); return <AppShell><RoadmapPage setCurrentPage={n.setCurrentPage} setSelectedCourse={n.setSelectedCourse} /></AppShell>; }
-function RAchievements() { const n = useNav(); return <AppShell><AchievementsPage setCurrentPage={n.setCurrentPage} setSelectedCourse={n.setSelectedCourse} /></AppShell>; }
-function RAuth() { const n = useNav(); return <AppShell showHeader={false}><AuthPage setCurrentPage={n.setCurrentPage} /></AppShell>; }
-function RWallet() { const n = useNav(); return <AppShell><WalletPage setCurrentPage={n.setCurrentPage} /></AppShell>; }
-function RPayment() { const n = useNav(); return <AppShell showHeader={false}><PaymentPage setCurrentPage={n.setCurrentPage} /></AppShell>; }
-function RPlayground() { return <AppShell><PlaygroundPage /></AppShell>; }
-function RProfile() { return <AppShell><ProfilePage /></AppShell>; }
-function RAbout() { const n = useNav(); return <AppShell><AboutPage setCurrentPage={n.setCurrentPage} /></AppShell>; }
-function RAdmin() { const n = useNav(); return <AppShell><AdminDashboard setCurrentPage={n.setCurrentPage} /></AppShell>; }
-function RBackend() { const n = useNav(); return <AppShell showHeader={false}><BackendCoursePage setCurrentPage={n.setCurrentPage} /></AppShell>; }
 
 function AppRoutes() {
   const { user, loading, isAdmin } = useAuth();
