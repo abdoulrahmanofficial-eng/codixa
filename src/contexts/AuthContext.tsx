@@ -89,6 +89,7 @@ interface AuthContextType {
   createNotification: (title: string, body: string) => Promise<void>;
   getNotifications: () => Promise<AppNotification[]>;
   markNotificationRead: (notificationId: string) => Promise<void>;
+  deleteNotification: (notificationId: string) => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -126,6 +127,7 @@ const AuthContext = createContext<AuthContextType>({
   createNotification: async () => {},
   getNotifications: async () => [],
   markNotificationRead: async () => {},
+  deleteNotification: async () => {},
   isAdmin: false,
 });
 
@@ -488,6 +490,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await update(ref(rtdb, `users/${user.uid}/readNotifications`), { [notificationId]: true });
   };
 
+  const deleteNotificationFn = async (notificationId: string) => {
+    if (!isAdmin) throw new Error('Admin only');
+    await set(ref(rtdb, `notifications/${notificationId}`), null);
+  };
+
   const createDiscountCode = async (code: string, percentage: number) => {
     if (!isAdmin) return;
     await set(ref(rtdb, `discount-codes/${code.toUpperCase()}`), {
@@ -669,6 +676,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       createNotification: createNotificationFn,
       getNotifications: getNotificationsFn,
       markNotificationRead: markNotificationReadFn,
+      deleteNotification: deleteNotificationFn,
       createDiscountCode,
       getAllDiscountCodes,
       deleteDiscountCode,

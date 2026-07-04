@@ -10,7 +10,7 @@ import {
   Users, ShoppingCart, CheckCircle, XCircle, TrendingUp, Loader2, ArrowLeft,
   Search, Shield, ShieldOff, UserCog, Activity, CreditCard, BookOpen, Star, DollarSign,
   Calendar, Filter, RefreshCw, ChevronDown, ChevronUp, Plus, Minus, Edit3, Tag,
-  Bell, Send
+  Bell, Send, XCircle
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -21,7 +21,7 @@ type AdminTab = 'overview' | 'users' | 'transactions' | 'courses' | 'settings' |
 
 export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) {
   const { t, lang } = useI18n();
-  const { isAdmin, profile, getAllUsers, getAllTransactions, approveDeposit, rejectDeposit, setAdminRole, addUserBalance, deductUserBalance, transferBalance, createDiscountCode, getAllDiscountCodes, deleteDiscountCode, deleteUser, createNotification, getNotifications, markNotificationRead } = useAuth();
+  const { isAdmin, profile, getAllUsers, getAllTransactions, approveDeposit, rejectDeposit, setAdminRole, addUserBalance, deductUserBalance, transferBalance, createDiscountCode, getAllDiscountCodes, deleteDiscountCode, deleteUser, createNotification, getNotifications, markNotificationRead, deleteNotification } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -880,8 +880,17 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                             <div className="text-white font-semibold text-sm">{n.title}</div>
                             <div className="text-slate-400 text-xs mt-1">{n.body}</div>
                           </div>
-                          <div className="text-slate-500 text-[10px] whitespace-nowrap">
-                            {new Date(n.createdAt).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-slate-500 text-[10px]">
+                              {new Date(n.createdAt).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}
+                            </div>
+                            <button onClick={async () => {
+                              if (!window.confirm(lang === 'ar' ? `حذف الإشعار "${n.title}"؟` : `Delete notification "${n.title}"?`)) return;
+                              await deleteNotification(n.id);
+                              setNotifications(prev => prev.filter(x => x.id !== n.id));
+                            }} className="text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg p-1 transition-all" title={lang === 'ar' ? 'حذف' : 'Delete'}>
+                              <XCircle size={14} />
+                            </button>
                           </div>
                         </div>
                       </div>
