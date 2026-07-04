@@ -61,6 +61,12 @@
     "admin-push-subs": {
       ".read": true,
       ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+    },
+    "verification-codes": {
+      "$uid": {
+        ".read": "auth.uid === $uid",
+        ".write": "auth.uid === $uid"
+      }
     }
   }
 }

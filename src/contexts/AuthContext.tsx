@@ -296,11 +296,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Send custom verification email via our API
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    await set(ref(rtdb, `verification-codes/${cred.user.uid}`), {
-      code,
-      email,
-      expiresAt: Date.now() + 600000, // 10 min
-    });
+    try {
+      await set(ref(rtdb, `verification-codes/${cred.user.uid}`), {
+        code,
+        email,
+        expiresAt: Date.now() + 600000, // 10 min
+      });
+    } catch { /* code storage is a bonus */ }
     try {
       await fetch('/api/send-email', {
         method: 'POST',
