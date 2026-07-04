@@ -1,4 +1,6 @@
 import { useRef, useCallback, createContext, useContext, useEffect, ReactNode, useState } from 'react';
+import { ref, get } from 'firebase/database';
+import { rtdb } from './lib/firebase';
 import { I18nProvider } from './i18n/I18nContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -118,6 +120,13 @@ function AppRoutes() {
   const { user, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
   const prevUserRef = useRef(user);
+  const [maintenance, setMaintenance] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    get(ref(rtdb, 'config/maintenance')).then(snap => {
+      setMaintenance(snap.exists() ? snap.val().enabled : false);
+    });
+  }, []);
 
   useEffect(() => {
     const prev = prevUserRef.current;
@@ -127,8 +136,26 @@ function AppRoutes() {
     }
   }, [loading, user, navigate]);
 
-  if (loading) {
+  if (loading || maintenance === null) {
     return <div className="min-h-screen bg-slate-900 flex items-center justify-center"><div className="w-12 h-12 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>;
+  }
+
+  // Maintenance mode — only admins can bypass
+  if (maintenance && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center px-4 text-center">
+        <div className="text-6xl mb-6">🔧</div>
+        <h1 className="text-3xl sm:text-4xl font-black text-white mb-4">
+          جاري صيانة المنصة
+        </h1>
+        <p className="text-slate-400 text-lg max-w-md">
+          المنصة تحت الصيانة حالياً. سنعود قريباً!
+        </p>
+        <p className="text-slate-500 text-sm mt-2">
+          The platform is currently under maintenance. We'll be back soon!
+        </p>
+      </div>
+    );
   }
 
   if (!user) {

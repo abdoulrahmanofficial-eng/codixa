@@ -6,6 +6,8 @@ import { getDynamicCourses, updateCoursePrice as updateDynamicPrice, type Backen
 import { setCoursePrice, getAllPriceOverrides, removeCoursePrice } from '../lib/priceService';
 import { courses as staticCourses } from '../data/courses';
 import SeedCoursePanel from './SeedCoursePanel';
+import { ref, get, set } from 'firebase/database';
+import { rtdb } from '../lib/firebase';
 import {
   Users, ShoppingCart, CheckCircle, XCircle, TrendingUp, Loader2, ArrowLeft,
   Search, Shield, ShieldOff, UserCog, Activity, CreditCard, BookOpen, Star, DollarSign,
@@ -49,6 +51,8 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   const [notifTitle, setNotifTitle] = useState('');
   const [notifBody, setNotifBody] = useState('');
   const [notifSending, setNotifSending] = useState(false);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -65,6 +69,8 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
       setPriceOverrides(overrides);
       setDiscountCodes(codes);
       setNotifications(notifs);
+      const maintSnap = await get(ref(rtdb, 'config/maintenance'));
+      setMaintenanceMode(maintSnap.exists() ? maintSnap.val().enabled : false);
     } catch (err) {
       console.error(err);
     } finally {
@@ -785,6 +791,35 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                       <Users size={16} />
                       {lang === 'ar' ? 'إدارة المستخدمين' : 'Manage Users'}
                     </button>
+                  </div>
+                </div>
+
+                <div className="glass rounded-2xl p-6 border border-white/10">
+                  <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+                    <Shield size={18} className="text-red-400" />
+                    {lang === 'ar' ? 'وضع الصيانة' : 'Maintenance Mode'}
+                  </h3>
+                  <p className="text-slate-400 text-sm mb-4">
+                    {lang === 'ar'
+                      ? 'عند تفعيل وضع الصيانة، لن يتمكن المستخدمون من الوصول للمنصة وسيشاهدون شاشة "جاري الصيانة". حساب المدير يبقى شغال.'
+                      : 'When enabled, users will see a maintenance screen. Admin access remains unaffected.'}
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <button onClick={async () => {
+                      setMaintenanceSaving(true);
+                      const newVal = !maintenanceMode;
+                      await set(ref(rtdb, 'config/maintenance'), { enabled: newVal });
+                      setMaintenanceMode(newVal);
+                      setMaintenanceSaving(false);
+                    }} disabled={maintenanceSaving}
+                      className={`relative w-14 h-7 rounded-full transition-all ${maintenanceMode ? 'bg-red-500' : 'bg-white/20'} ${maintenanceSaving ? 'opacity-50' : ''}`}>
+                      <div className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-all ${maintenanceMode ? 'end-0.5' : 'start-0.5'}`} />
+                    </button>
+                    <span className={`text-sm font-semibold ${maintenanceMode ? 'text-red-400' : 'text-slate-400'}`}>
+                      {maintenanceMode
+                        ? (lang === 'ar' ? '🛑 وضع الصيانة مفعل' : '🛑 Maintenance mode is ON')
+                        : (lang === 'ar' ? '✅ المنصة شغالة' : '✅ Platform is live')}
+                    </span>
                   </div>
                 </div>
 
