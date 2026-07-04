@@ -57,6 +57,12 @@
       "$uid": {
         ".write": "auth.uid === $uid"
       }
+    },
+    "admin-push-subs": {
+      "$uid": {
+        ".read": "auth.uid === $uid",
+        ".write": "auth.uid === $uid"
+      }
     }
   }
 }

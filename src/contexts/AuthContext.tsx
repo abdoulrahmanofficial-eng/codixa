@@ -334,6 +334,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         paymentCode: tx.paymentCode || '',
         date: Date.now(),
       });
+
+      // Send push notification to all admins
+      try {
+        await fetch('/api/send-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userName: profile?.name || user.email || 'Unknown',
+            amount: tx.amount,
+          }),
+        });
+      } catch {
+        // silent fail
+      }
     }
 
     await refreshProfile();

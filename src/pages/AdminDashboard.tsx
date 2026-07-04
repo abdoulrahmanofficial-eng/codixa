@@ -8,7 +8,7 @@ import { courses as staticCourses } from '../data/courses';
 import SeedCoursePanel from './SeedCoursePanel';
 import { ref, get, set, onChildAdded, off } from 'firebase/database';
 import { rtdb } from '../lib/firebase';
-import { requestNotificationPermission, showBrowserNotification } from '../lib/fcm';
+import { subscribeToPush, showBrowserNotification } from '../lib/fcm';
 import {
   Users, ShoppingCart, CheckCircle, XCircle, TrendingUp, Loader2, ArrowLeft,
   Search, Shield, ShieldOff, UserCog, Activity, CreditCard, BookOpen, Star, DollarSign,
@@ -62,7 +62,6 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
 
   useEffect(() => {
     if (!isAdmin) return;
-    requestNotificationPermission();
     const pendingRef = ref(rtdb, 'pending-deposits');
 
     // Mark all existing children as seen to avoid re-notifying
@@ -93,7 +92,9 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   useEffect(() => {
     if (!isAdmin) return;
     loadData();
-  }, [isAdmin]);
+    const uid = profile?.uid;
+    if (uid) subscribeToPush(uid);
+  }, [isAdmin, profile?.uid]);
 
   const loadData = async () => {
     setLoading(true);
