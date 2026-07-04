@@ -120,7 +120,7 @@ function CertRoute() {
 }
 
 function AppRoutes() {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, profile } = useAuth();
   const navigate = useNavigate();
   const prevUserRef = useRef(user);
   const [maintenance, setMaintenance] = useState<boolean | null>(null);
