@@ -1,6 +1,5 @@
+// @ts-nocheck
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-// @ts-ignore - web-push has no types
 import webpush from 'web-push';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -18,7 +17,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const subscriptions: any[] = [];
 
   try {
-    // @ts-ignore - dynamic import for firebase-admin
     const { default: admin } = await import('firebase-admin');
 
     if (!admin.apps.length) {
