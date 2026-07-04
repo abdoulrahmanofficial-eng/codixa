@@ -190,7 +190,7 @@ export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }:
         .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
         .replace(/\*([^*]+)\*/g, '<em class="text-slate-200">$1</em>')
         .replace(/^### (.+)$/gm, '<h3 class="text-white font-bold text-base mt-3 mb-1">$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2 class="text-white font-bold text-lg mt-4 mb-1">$2</h2>')
+        .replace(/^## (.+)$/gm, '<h2 class="text-white font-bold text-lg mt-4 mb-1">$1</h2>')
         .replace(/^# (.+)$/gm, '<h1 class="text-white font-bold text-xl mt-4 mb-2">$1</h1>')
         .replace(/^- (.+)$/gm, '• $1')
         .replace(/^\d+\. (.+)$/gm, (m) => {
