@@ -213,38 +213,16 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
             </div>
             <h2 className="text-xl font-bold text-white mb-2">{t('auth.verifyEmail')}</h2>
             <p className="text-slate-400 text-sm mb-4">{t('auth.verifyEmailDesc')}</p>
-            <p className="text-slate-400 text-sm mb-2">{t('auth.checkInbox')} (<span className="text-indigo-300">{email}</span>)</p>
-            <p className="text-xs text-slate-500 mb-6">{lang === 'ar' ? 'سيصلك إيميل تأكيد من Firebase — تحقق من spam لو موصلش' : 'Check your inbox — also check spam if not found'}</p>
+            <p className="text-slate-400 text-xs mb-4">{lang === 'ar' ? 'تم إنشاء حسابك بـ' : 'Account created with'} <span className="text-indigo-300">{email}</span></p>
 
-            {verifySent && (
-              <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-sm text-center mb-4">
-                {t('auth.verifyEmailSent')}
-              </div>
-            )}
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm text-center mb-4">
                 {error}
               </div>
             )}
 
-            <button onClick={handleCheckVerified}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all mb-3">
-              <ShieldCheck size={18} />
-              {lang === 'ar' ? 'تم التأكيد، ادخل الآن' : "I've verified, continue"}
-            </button>
-
-            <button onClick={handleResendVerification} disabled={verifyLoading}
-              className="w-full py-3 text-indigo-400 hover:text-indigo-300 font-semibold text-sm transition-colors disabled:opacity-50">
-              {verifyLoading ? <Loader2 size={18} className="animate-spin mx-auto" /> : t('auth.resendVerification')}
-            </button>
-
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700/50" /></div>
-              <div className="relative flex justify-center"><span className="bg-slate-900 px-3 text-xs text-slate-500">{lang === 'ar' ? 'أو' : 'OR'}</span></div>
-            </div>
-
-            <div className="text-right mb-3">
-              <label className="text-slate-400 text-xs">{lang === 'ar' ? 'أدخل كود التفعيل المرسل إلى بريدك' : 'Enter the verification code sent to your email'}</label>
+            <div className="mb-3">
+              <label className="text-slate-400 text-xs">{lang === 'ar' ? 'أدخل كود التفعيل الخاص بك' : 'Enter your verification code'}</label>
             </div>
             <div className="flex gap-2 mb-3">
               <input type="text" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000"
@@ -255,25 +233,26 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
               </button>
             </div>
 
+            {fallbackCode && (
+              <div className="mb-4 p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-xl">
+                <p className="text-xs text-indigo-300 mb-2">{lang === 'ar' ? 'كود التفعيل الخاص بك (إذا لم يصل الإيميل):' : 'Your verification code (if email did not arrive):'}</p>
+                <p className="text-3xl font-bold text-indigo-200 tracking-[14px] text-center">{fallbackCode}</p>
+              </div>
+            )}
+
+            <div className="text-xs text-slate-500 mb-4">
+              {lang === 'ar' ? 'في حالة وصول إيميل التأكيد من Firebase، يمكنك النقر على الرابط الموجود به بدلاً من ذلك' : 'If you receive the Firebase confirmation email, you can click the link in it instead'}
+            </div>
+
+            <button onClick={handleResendVerification} disabled={verifyLoading}
+              className="w-full py-3 text-indigo-400 hover:text-indigo-300 font-semibold text-sm transition-colors disabled:opacity-50">
+              {verifyLoading ? <Loader2 size={18} className="animate-spin mx-auto" /> : t('auth.resendVerification')}
+            </button>
+
             <button onClick={() => { setShowVerify(false); setCurrentPage('home'); }}
               className="mt-2 text-slate-500 hover:text-slate-400 text-sm transition-colors">
               {lang === 'ar' ? 'تسجيل الخروج' : 'Sign out'}
             </button>
-
-            {fallbackCode && (
-              <div className="mt-4 pt-4 border-t border-slate-700/30">
-                <button onClick={() => setShowFallback(!showFallback)}
-                  className="text-xs text-slate-500 hover:text-slate-400 transition-colors underline">
-                  {lang === 'ar' ? 'لم يصلك الإيميل؟ اعرض كود التفعيل' : "Didn't receive the email? Show code"}
-                </button>
-                {showFallback && (
-                  <div className="mt-2 p-3 bg-slate-800/50 rounded-xl border border-amber-500/20">
-                    <p className="text-xs text-slate-500 mb-1">{lang === 'ar' ? 'انسخ الكود وأدخله أعلاه' : 'Copy this code and paste it above'}</p>
-                    <p className="text-2xl font-bold text-amber-400 tracking-[12px] text-center">{fallbackCode}</p>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>
