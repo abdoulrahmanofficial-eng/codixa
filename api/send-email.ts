@@ -1,6 +1,5 @@
 // @ts-nocheck
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import nodemailer from 'nodemailer';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -24,35 +23,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       const data = await resp.json();
       if (resp.ok) return res.json({ ok: true, id: data.id });
-      // Resend returned an error — log and fall through
-      console.error('Resend error:', data);
-    } catch (e: any) { console.error('Resend exception:', e?.message); /* fall through to SMTP */ }
+    } catch {}
   }
 
-  // SMTP fallback (Brevo / Sendinblue)
-  const SMTP_USER = process.env.SMTP_USER;
-  const SMTP_PASS = process.env.SMTP_PASS;
-  if (SMTP_USER && SMTP_PASS) {
+  // Brevo API (no IP whitelist needed)
+  const BREVO_KEY = process.env.SMTP_PASS;
+  if (BREVO_KEY) {
     try {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp-relay.brevo.com',
-        port: 587,
-        secure: false,
-        auth: { user: SMTP_USER, pass: SMTP_PASS },
+      const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'api-key': BREVO_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: { name: 'Codixa', email: 'codixa.info.io@gmail.com' },
+          to: [{ email: to, name: name || '' }],
+          subject: 'كود تفعيل حسابك في كودكسا',
+          htmlContent: buildHtml(code, name),
+        }),
       });
-      await transporter.sendMail({
-        from: `"Codixa" <${process.env.SMTP_FROM || 'codixa.info.io@gmail.com'}>`,
-        to,
-        subject: 'كود تفعيل حسابك في كودكسا',
-        html: buildHtml(code, name),
-      });
-      return res.json({ ok: true });
+      const data = await resp.json();
+      if (resp.ok) return res.json({ ok: true, id: data.messageId });
+      return res.status(500).json({ error: 'Brevo API error', details: data });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
   }
 
-  res.json({ ok: false, reason: 'No email provider configured. Set RESEND_API_KEY or SMTP_USER+SMTP_PASS' });
+  res.json({ ok: false, reason: 'No email provider configured. Set RESEND_API_KEY or SMTP_PASS (Brevo key)' });
 }
 
 function buildHtml(code: string, name?: string) {
