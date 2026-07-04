@@ -463,6 +463,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       update(ref(rtdb, `users/${fromUserId}`), { ['wallet/balance']: fromBalance - amount }),
       update(ref(rtdb, `users/${toUserId}`), { ['wallet/balance']: (toData.wallet?.balance || 0) + amount }),
     ]);
+    // Create notification for recipient
+    const notifRef = push(ref(rtdb, 'notifications'));
+    await set(notifRef, {
+      title: '💰 تحويل وارِد / Transfer Received',
+      body: `تم استلام ${amount} EGP من ${fromData.name || fromUserId} — Received ${amount} EGP from ${fromData.name || fromUserId}`,
+      createdAt: Date.now(),
+    });
   };
 
   const deleteUserFn = async (userId: string) => {
