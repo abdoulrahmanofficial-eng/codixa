@@ -128,7 +128,7 @@ function AppRoutes() {
   useEffect(() => {
     get(ref(rtdb, 'config/maintenance')).then(snap => {
       setMaintenance(snap.exists() ? snap.val().enabled : false);
-    });
+    }).catch(() => setMaintenance(false));
   }, []);
 
   useEffect(() => {
