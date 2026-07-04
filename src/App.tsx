@@ -175,7 +175,7 @@ function AppRoutes() {
   }
 
   // Block unverified emails from accessing the platform
-  if (!user.emailVerified) {
+  if (!user.emailVerified && !profile?.emailVerified) {
     return (
       <Routes>
         <Route path="/auth" element={<RAuth />} />

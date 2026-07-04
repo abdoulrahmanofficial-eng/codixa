@@ -43,6 +43,7 @@ export interface UserProfile {
   level: number;
   wallet: WalletData;
   isAdmin?: boolean;
+  emailVerified?: boolean;
   avatar?: string;
   lastCourse?: string;
   lastLesson?: Record<string, string>; // { courseId: lessonId }
@@ -85,6 +86,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   verifyEmail: (oobCode: string) => Promise<void>;
+  verifyWithCode: (uid: string, code: string) => Promise<boolean>;
   deleteUser: (userId: string) => Promise<void>;
   createNotification: (title: string, body: string) => Promise<void>;
   sendUserNotification: (userId: string, title: string, body: string) => Promise<void>;
@@ -130,6 +132,7 @@ const AuthContext = createContext<AuthContextType>({
   resetPassword: async () => {},
   sendVerificationEmail: async () => {},
   verifyEmail: async () => {},
+  verifyWithCode: async () => false,
   deleteUser: async () => {},
   createNotification: async () => {},
   sendUserNotification: async () => {},
@@ -290,6 +293,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       wallet: { balance: 0, transactions: {} },
     });
     setProfile(newProfile);
+
+    // Send custom verification email via our API
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    await set(ref(rtdb, `verification-codes/${cred.user.uid}`), {
+      code,
+      email,
+      expiresAt: Date.now() + 600000, // 10 min
+    });
+    try {
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: email, code, name }),
+      });
+    } catch { /* email is bonus, not blocking */ }
+
+    // Also send Firebase default (for alternative verification)
+    try { await sendEmailVerification(cred.user); } catch { /* silent */ }
   };
 
   const logout = async () => {
@@ -312,6 +333,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (auth.currentUser) {
       await auth.currentUser.reload();
     }
+  };
+
+  const verifyWithCodeFn = async (uid: string, code: string): Promise<boolean> => {
+    const snap = await get(ref(rtdb, `verification-codes/${uid}`));
+    if (!snap.exists()) return false;
+    const data = snap.val();
+    if (data.code !== code || Date.now() > data.expiresAt) {
+      await remove(ref(rtdb, `verification-codes/${uid}`));
+      return false;
+    }
+    await remove(ref(rtdb, `verification-codes/${uid}`));
+    await update(ref(rtdb, `users/${uid}/emailVerified`), true);
+    if (auth.currentUser) await auth.currentUser.reload();
+    await refreshProfile();
+    return true;
   };
 
   const addTransaction = async (tx: Omit<Transaction, 'id' | 'date'>): Promise<string | null> => {
@@ -901,6 +937,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword: resetPasswordFn,
       sendVerificationEmail: sendVerificationEmailFn,
       verifyEmail: verifyEmailFn,
+      verifyWithCode: verifyWithCodeFn,
       addTransaction,
       approveDeposit,
       rejectDeposit,

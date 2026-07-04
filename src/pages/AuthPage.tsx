@@ -11,7 +11,7 @@ interface AuthPageProps {
 
 export default function AuthPage({ setCurrentPage }: AuthPageProps) {
   const { t, lang } = useI18n();
-  const { login, register, user, sendVerificationEmail, verifyEmail } = useAuth();
+  const { login, register, user, profile, sendVerificationEmail, verifyEmail, verifyWithCode } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -28,6 +28,8 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
   const [verifySent, setVerifySent] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
+  const [code, setCode] = useState('');
+  const [codeLoading, setCodeLoading] = useState(false);
 
   // Detect verifyEmail mode from URL
   useEffect(() => {
@@ -48,10 +50,10 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
 
   // Redirect to courses if already logged in and email verified
   useEffect(() => {
-    if (user && user.emailVerified && !showVerify && !verifiedSuccess) {
+    if (user && (user.emailVerified || profile?.emailVerified) && !showVerify && !verifiedSuccess) {
       setCurrentPage('courses');
     }
-  }, [user, setCurrentPage, showVerify, verifiedSuccess]);
+  }, [user, profile, setCurrentPage, showVerify, verifiedSuccess]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,6 +124,27 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
       setError(t('auth.error.default'));
     } finally {
       setVerifyLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    setError('');
+    if (!code || code.length !== 6) {
+      setError(lang === 'ar' ? 'أدخل الكود المكون من 6 أرقام' : 'Enter the 6-digit code');
+      return;
+    }
+    setCodeLoading(true);
+    try {
+      const ok = await verifyWithCode(user?.uid || '', code);
+      if (ok) {
+        setVerifiedSuccess(true);
+      } else {
+        setError(lang === 'ar' ? 'الكود غير صحيح أو منتهي الصلاحية' : 'Invalid or expired code');
+      }
+    } catch {
+      setError(lang === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'An error occurred');
+    } finally {
+      setCodeLoading(false);
     }
   };
 
@@ -202,6 +225,23 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
               className="w-full py-3 text-indigo-400 hover:text-indigo-300 font-semibold text-sm transition-colors disabled:opacity-50">
               {verifyLoading ? <Loader2 size={18} className="animate-spin mx-auto" /> : t('auth.resendVerification')}
             </button>
+
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700/50" /></div>
+              <div className="relative flex justify-center"><span className="bg-slate-900 px-3 text-xs text-slate-500">{lang === 'ar' ? 'أو' : 'OR'}</span></div>
+            </div>
+
+            <div className="text-right mb-3">
+              <label className="text-slate-400 text-xs">{lang === 'ar' ? 'أدخل كود التفعيل المرسل إلى بريدك' : 'Enter the verification code sent to your email'}</label>
+            </div>
+            <div className="flex gap-2 mb-3">
+              <input type="text" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000"
+                className="flex-1 text-center text-2xl tracking-[12px] font-bold bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 transition-all" />
+              <button onClick={handleVerifyCode} disabled={codeLoading || code.length !== 6}
+                className="px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50">
+                {codeLoading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+              </button>
+            </div>
 
             <button onClick={() => { setShowVerify(false); setCurrentPage('home'); }}
               className="mt-2 text-slate-500 hover:text-slate-400 text-sm transition-colors">
