@@ -122,13 +122,13 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
     if (!course) return;
     if (course.free) {
       setSelectedCourse(courseId);
-      setCurrentPage('lesson');
+      setCurrentPage('lesson', courseId);
     } else if (user && profile?.purchasedCourses?.includes(courseId)) {
       setSelectedCourse(courseId);
-      setCurrentPage('lesson');
+      setCurrentPage('lesson', courseId);
     } else if (user) {
       setSelectedCourse(courseId);
-      setCurrentPage('lesson');
+      setCurrentPage('lesson', courseId);
     } else {
       setCurrentPage('auth');
     }
