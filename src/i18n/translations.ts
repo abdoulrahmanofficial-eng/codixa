@@ -226,7 +226,7 @@ export const translations: Record<string, Record<string, string>> = {
     'achievements.leaderboard': 'المتصدرون',
     'achievements.you': 'أنت',
     'achievements.needXP': 'تحتاج',
-    'achievements.toReach': 'للوصول للمركز الرابع',
+    'achievements.toReach': 'للوصول للمركز الأول',
 
     // Lesson Page
     'lesson.back': 'الكورسات',
@@ -614,7 +614,7 @@ export const translations: Record<string, Record<string, string>> = {
     'achievements.leaderboard': 'Leaderboard',
     'achievements.you': 'You',
     'achievements.needXP': 'Need',
-    'achievements.toReach': 'to reach 4th place',
+    'achievements.toReach': 'to reach 1st place',
 
     // Lesson Page
     'lesson.back': 'Courses',

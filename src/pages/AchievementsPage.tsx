@@ -71,10 +71,10 @@ export default function AchievementsPage({ setCurrentPage, setSelectedCourse }: 
 
   const earnedCount = allBadges.filter(b => b.earned).length;
 
-  // Leaderboard from RTDB
+  // Leaderboard from RTDB — top 3 non-admin users
   const leaderboard = useMemo(() => {
-    const sorted = [...allUsers].sort((a, b) => (b.xp || 0) - (a.xp || 0));
-    return sorted.slice(0, 10).map((u, i) => ({
+    const sorted = [...allUsers].filter(u => !u.isAdmin).sort((a, b) => (b.xp || 0) - (a.xp || 0));
+    return sorted.slice(0, 3).map((u, i) => ({
       rank: i + 1,
       name: u.name || u.email?.split('@')[0] || 'User',
       xp: u.xp || 0,
@@ -86,7 +86,7 @@ export default function AchievementsPage({ setCurrentPage, setSelectedCourse }: 
   }, [allUsers, user]);
 
   const myRank = leaderboard.find(l => l.isMe);
-  const top3XP = leaderboard[Math.min(3, leaderboard.length - 1)]?.xp || 0;
+  const firstPlaceXP = leaderboard[0]?.xp || 0;
 
   return (
     <div className="min-h-screen pt-20 pb-10 px-4 sm:px-6">
@@ -327,12 +327,12 @@ export default function AchievementsPage({ setCurrentPage, setSelectedCourse }: 
               {leaderboard.length > 0 && (
                 <div className="mt-6 p-4 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-center">
                   <div className="text-indigo-400 font-bold text-sm mb-1">
-                    {t('achievements.needXP')} {Math.max(0, top3XP - currentXP)} {t('achievements.xp')} {t('achievements.toReach')}
+                    {t('achievements.needXP')} {Math.max(0, firstPlaceXP - currentXP)} {t('achievements.xp')} {t('achievements.toReach')}
                   </div>
                   <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
-                      style={{ width: `${top3XP > 0 ? Math.min(100, (currentXP / top3XP) * 100) : 0}%` }}
+                      style={{ width: `${firstPlaceXP > 0 ? Math.min(100, (currentXP / firstPlaceXP) * 100) : 0}%` }}
                     />
                   </div>
                 </div>
