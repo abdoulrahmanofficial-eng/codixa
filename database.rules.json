@@ -51,6 +51,12 @@
     "pending-deposits": {
       ".read": "root.child('users').child(auth.uid).child('isAdmin').val() === true",
       ".write": "auth.uid !== null"
+    },
+    "admin-fcm-tokens": {
+      ".read": "root.child('users').child(auth.uid).child('isAdmin').val() === true",
+      "$uid": {
+        ".write": "auth.uid === $uid"
+      }
     }
   }
 }

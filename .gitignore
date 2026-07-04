@@ -6,3 +6,5 @@ dist/
 
 .vercel
 .env*
+functions/
+node_modules/
