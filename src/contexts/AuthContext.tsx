@@ -335,7 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
     await remove(ref(rtdb, `verification-codes/${uid}`));
-    await update(ref(rtdb, `users/${uid}/emailVerified`), true);
+    await set(ref(rtdb, `users/${uid}/emailVerified`), true);
     if (auth.currentUser) await auth.currentUser.reload();
     await refreshProfile();
     return true;

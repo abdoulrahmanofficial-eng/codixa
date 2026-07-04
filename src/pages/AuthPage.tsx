@@ -3,8 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { Mail, Lock, User, ArrowLeft, Eye, EyeOff, Code2, Loader2, CheckCircle, ShieldCheck } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth, rtdb } from '../lib/firebase';
-import { ref, get } from 'firebase/database';
+import { auth } from '../lib/firebase';
 
 interface AuthPageProps {
   setCurrentPage: (page: string) => void;
@@ -31,7 +30,6 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
   const [code, setCode] = useState('');
   const [codeLoading, setCodeLoading] = useState(false);
-  const [fallbackCode, setFallbackCode] = useState('');
 
   // Detect verifyEmail mode from URL
   useEffect(() => {
@@ -49,15 +47,6 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
       })();
     }
   }, []);
-
-  // Fetch fallback code from RTDB
-  useEffect(() => {
-    if (showVerify && user) {
-      get(ref(rtdb, `verification-codes/${user.uid}`)).then(snap => {
-        if (snap.exists()) setFallbackCode(snap.val().code || '');
-      }).catch(() => {});
-    }
-  }, [showVerify, user]);
 
   // Redirect to courses if already logged in and email verified
   useEffect(() => {
@@ -231,13 +220,6 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
                 {codeLoading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
               </button>
             </div>
-
-            {fallbackCode && (
-              <div className="mb-4 p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-xl">
-                <p className="text-xs text-indigo-300 mb-2">{lang === 'ar' ? 'كود التفعيل الخاص بك (إذا لم يصل الإيميل):' : 'Your code (if email not received):'}</p>
-                <p className="text-3xl font-bold text-indigo-200 tracking-[14px] text-center">{fallbackCode}</p>
-              </div>
-            )}
 
             <button onClick={handleResendVerification} disabled={verifyLoading}
               className="w-full py-3 text-indigo-400 hover:text-indigo-300 font-semibold text-sm transition-colors disabled:opacity-50">
