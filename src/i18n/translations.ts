@@ -68,6 +68,14 @@ export const translations: Record<string, Record<string, string>> = {
     'auth.resetPasswordDesc': 'أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة تعيين كلمة المرور',
     'auth.resetSent': 'تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني',
     'auth.backToLogin': 'العودة إلى تسجيل الدخول',
+    'auth.verifyEmail': 'تأكيد البريد الإلكتروني',
+    'auth.verifyEmailDesc': 'تم إنشاء الحساب بنجاح! يرجى تأكيد بريدك الإلكتروني للدخول إلى المنصة',
+    'auth.verifyEmailSent': 'تم إرسال رابط التأكيد إلى بريدك الإلكتروني',
+    'auth.checkInbox': 'تحقق من بريدك الوارد واضغط على رابط التأكيد',
+    'auth.resendVerification': 'إعادة إرسال رابط التأكيد',
+    'auth.resendSent': 'تم إعادة إرسال رابط التأكيد',
+    'auth.verifiedSuccess': 'تم تأكيد البريد الإلكتروني بنجاح!',
+    'auth.verifyBeforeLogin': 'يجب تأكيد بريدك الإلكتروني أولاً. تحقق من بريدك الوارد.',
 
     // Wallet
     'wallet.title': 'المحفظة',
@@ -448,6 +456,14 @@ export const translations: Record<string, Record<string, string>> = {
     'auth.resetPasswordDesc': 'Enter your email and we will send you a password reset link',
     'auth.resetSent': 'Password reset link sent to your email',
     'auth.backToLogin': 'Back to Login',
+    'auth.verifyEmail': 'Verify Email',
+    'auth.verifyEmailDesc': 'Account created! Please verify your email to access the platform',
+    'auth.verifyEmailSent': 'Verification link sent to your email',
+    'auth.checkInbox': 'Check your inbox and click the verification link',
+    'auth.resendVerification': 'Resend Verification Link',
+    'auth.resendSent': 'Verification link resent',
+    'auth.verifiedSuccess': 'Email verified successfully!',
+    'auth.verifyBeforeLogin': 'Please verify your email first. Check your inbox.',
 
     // Wallet
     'wallet.title': 'Wallet',

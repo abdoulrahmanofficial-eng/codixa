@@ -139,6 +139,16 @@ function AppRoutes() {
     );
   }
 
+  // Block unverified emails from accessing the platform
+  if (!user.emailVerified) {
+    return (
+      <Routes>
+        <Route path="/auth" element={<RAuth />} />
+        <Route path="*" element={<Navigate to="/auth" replace />} />
+      </Routes>
+    );
+  }
+
   if (isAdmin) {
     return (
       <Routes>

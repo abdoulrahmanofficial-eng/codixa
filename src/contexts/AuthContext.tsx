@@ -6,6 +6,8 @@ import {
   signOut,
   updateProfile,
   sendPasswordResetEmail,
+  sendEmailVerification,
+  applyActionCode,
   User,
 } from 'firebase/auth';
 import { ref, get, set, update, push, child } from 'firebase/database';
@@ -73,6 +75,8 @@ interface AuthContextType {
   completeLesson: (lessonId: string) => Promise<void>;
   setLastCourse: (courseId: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
+  verifyEmail: (oobCode: string) => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -104,6 +108,8 @@ const AuthContext = createContext<AuthContextType>({
   setLastCourse: async () => {},
   setLastLesson: async () => {},
   resetPassword: async () => {},
+  sendVerificationEmail: async () => {},
+  verifyEmail: async () => {},
   isAdmin: false,
 });
 
@@ -261,6 +267,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPasswordFn = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
+  };
+
+  const sendVerificationEmailFn = async () => {
+    if (auth.currentUser) {
+      await sendEmailVerification(auth.currentUser);
+    }
+  };
+
+  const verifyEmailFn = async (oobCode: string) => {
+    await applyActionCode(auth, oobCode);
+    if (auth.currentUser) {
+      await auth.currentUser.reload();
+    }
   };
 
   const addTransaction = async (tx: Omit<Transaction, 'id' | 'date'>): Promise<string | null> => {
@@ -593,6 +612,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLastCourse,
       setLastLesson,
       resetPassword: resetPasswordFn,
+      sendVerificationEmail: sendVerificationEmailFn,
+      verifyEmail: verifyEmailFn,
       addTransaction,
       approveDeposit,
       rejectDeposit,
