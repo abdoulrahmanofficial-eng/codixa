@@ -21,6 +21,32 @@
         },
         ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
       }
+    },
+    "config": {
+      ".read": true,
+      "maintenance": {
+        ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+      }
+    },
+    "course-prices": {
+      ".read": true,
+      ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+    },
+    "discount-codes": {
+      ".read": true,
+      ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+    },
+    "notifications": {
+      ".read": "auth.uid !== null",
+      ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+    },
+    "gift-cards": {
+      ".read": "auth.uid !== null",
+      ".write": "auth.uid !== null"
+    },
+    "gift-courses": {
+      ".read": "auth.uid !== null",
+      ".write": "auth.uid !== null"
     }
   }
 }
