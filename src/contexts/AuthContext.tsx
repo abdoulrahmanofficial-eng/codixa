@@ -95,6 +95,8 @@ interface AuthContextType {
   redeemGiftCard: (code: string) => Promise<{ senderName: string; message: string; type: 'card' | 'course'; courseId?: string }>;
   createGiftCourse: (courseId: string, price: number, message?: string) => Promise<string>;
   redeemGiftCourse: (code: string) => Promise<{ senderName: string; message: string; type: 'card' | 'course'; courseId?: string }>;
+  getMyGifts: () => Promise<{ code: string; type: 'card' | 'course'; amount: number; message: string; courseId?: string; createdAt: number }[]>;
+  cancelGift: (code: string, type: 'card' | 'course') => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -138,6 +140,8 @@ const AuthContext = createContext<AuthContextType>({
   redeemGiftCard: async () => ({ senderName: '', message: '', type: 'card' as const }),
   createGiftCourse: async () => '',
   redeemGiftCourse: async () => ({ senderName: '', message: '', type: 'course' as const }),
+  getMyGifts: async () => [],
+  cancelGift: async () => {},
   isAdmin: false,
 });
 
@@ -621,6 +625,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { senderName: gc.senderName, message: gc.message || '', type: 'course' as const, courseId: gc.courseId };
   };
 
+  const getMyGiftsFn = async (): Promise<{ code: string; type: 'card' | 'course'; amount: number; message: string; courseId?: string; createdAt: number }[]> => {
+    if (!user) return [];
+    const [cardsSnap, coursesSnap] = await Promise.all([
+      get(ref(rtdb, 'gift-cards')),
+      get(ref(rtdb, 'gift-courses')),
+    ]);
+    const result: any[] = [];
+    if (cardsSnap.exists()) {
+      const cards = cardsSnap.val();
+      for (const code of Object.keys(cards)) {
+        const c = cards[code];
+        if (c.senderUid === user.uid && c.status === 'active') {
+          result.push({ code, type: 'card' as const, amount: c.amount, message: c.message || '', createdAt: c.createdAt });
+        }
+      }
+    }
+    if (coursesSnap.exists()) {
+      const courses = coursesSnap.val();
+      for (const code of Object.keys(courses)) {
+        const c = courses[code];
+        if (c.senderUid === user.uid && c.status === 'active') {
+          result.push({ code, type: 'course' as const, amount: c.price, message: c.message || '', courseId: c.courseId, createdAt: c.createdAt });
+        }
+      }
+    }
+    result.sort((a, b) => b.createdAt - a.createdAt);
+    return result;
+  };
+
+  const cancelGiftFn = async (code: string, type: 'card' | 'course') => {
+    if (!user) throw new Error('Not logged in');
+    const root = type === 'card' ? 'gift-cards' : 'gift-courses';
+    const snap = await get(ref(rtdb, `${root}/${code}`));
+    if (!snap.exists()) throw new Error('Gift not found');
+    const data = snap.val();
+    if (data.senderUid !== user.uid) throw new Error('Not your gift');
+    if (data.status !== 'active') throw new Error('Gift already used or cancelled');
+    const amount = type === 'card' ? data.amount : data.price;
+    // Refund sender
+    const senderSnap = await get(ref(rtdb, `users/${user.uid}`));
+    if (senderSnap.exists()) {
+      const senderData = senderSnap.val();
+      const txRef = push(ref(rtdb, `users/${user.uid}/wallet/transactions`));
+      await set(txRef, {
+        type: 'refund', amount, date: Date.now(), status: 'completed',
+        description: `Refund gift ${code}`,
+      });
+      await update(ref(rtdb, `users/${user.uid}`), {
+        ['wallet/balance']: (senderData.wallet?.balance || 0) + amount,
+      });
+    }
+    await update(ref(rtdb, `${root}/${code}`), {
+      status: 'cancelled', cancelledAt: Date.now(),
+    });
+  };
+
   const createDiscountCode = async (code: string, percentage: number) => {
     if (!isAdmin) return;
     await set(ref(rtdb, `discount-codes/${code.toUpperCase()}`), {
@@ -808,6 +868,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       redeemGiftCard: redeemGiftCardFn,
       createGiftCourse: createGiftCourseFn,
       redeemGiftCourse: redeemGiftCourseFn,
+      getMyGifts: getMyGiftsFn,
+      cancelGift: cancelGiftFn,
       createDiscountCode,
       getAllDiscountCodes,
       deleteDiscountCode,

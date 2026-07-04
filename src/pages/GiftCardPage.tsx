@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Gift, ArrowLeft, Copy, CheckCircle, Loader2, Ticket, BookOpen } from 'lucide-react';
+import { Gift, ArrowLeft, Copy, CheckCircle, Loader2, Ticket, BookOpen, Package, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { courses as staticCourses } from '../data/courses';
@@ -22,8 +22,8 @@ interface CourseItem {
 
 export default function GiftCardPage({ setCurrentPage }: GiftCardPageProps) {
   const { t, lang } = useI18n();
-  const { profile, createGiftCard, redeemGiftCard, createGiftCourse, redeemGiftCourse } = useAuth();
-  const [tab, setTab] = useState<'card' | 'course' | 'redeem'>('card');
+  const { profile, createGiftCard, redeemGiftCard, createGiftCourse, redeemGiftCourse, getMyGifts, cancelGift } = useAuth();
+  const [tab, setTab] = useState<'card' | 'course' | 'redeem' | 'mygifts'>('card');
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
   const [buying, setBuying] = useState(false);
@@ -38,6 +38,9 @@ export default function GiftCardPage({ setCurrentPage }: GiftCardPageProps) {
   const [courseMsg, setCourseMsg] = useState('');
   const [buyingCourse, setBuyingCourse] = useState(false);
   const [generatedCourseCode, setGeneratedCourseCode] = useState('');
+  const [myGifts, setMyGifts] = useState<any[]>([]);
+  const [myGiftsLoading, setMyGiftsLoading] = useState(false);
+  const [cancelling, setCancelling] = useState<string | null>(null);
 
   const balance = profile?.wallet?.balance || 0;
 
@@ -129,6 +132,32 @@ export default function GiftCardPage({ setCurrentPage }: GiftCardPageProps) {
 
   const selected = courses.find(c => c.id === selectedCourse);
 
+  const fetchMyGifts = async () => {
+    setMyGiftsLoading(true);
+    const gifts = await getMyGifts();
+    setMyGifts(gifts);
+    setMyGiftsLoading(false);
+  };
+
+  useEffect(() => {
+    if (tab === 'mygifts') fetchMyGifts();
+  }, [tab]);
+
+  const handleCancelGift = async (code: string, type: 'card' | 'course') => {
+    if (!(lang === 'ar' ? window.confirm('هل أنت متأكد من إلغاء الهدية واسترداد المبلغ؟') : window.confirm('Are you sure you want to cancel this gift and refund?'))) return;
+    setCancelling(code);
+    try {
+      await cancelGift(code, type);
+      await fetchMyGifts();
+      setRedeemMsg({ ok: true, text: lang === 'ar' ? 'تم إلغاء الهدية واسترداد المبلغ' : 'Gift cancelled and refunded' });
+      setTimeout(() => setRedeemMsg(null), 3000);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setCancelling(null);
+    }
+  };
+
   return (
     <div className="min-h-screen pt-20 pb-10 px-4 sm:px-6">
       <div className="max-w-lg mx-auto">
@@ -170,6 +199,11 @@ export default function GiftCardPage({ setCurrentPage }: GiftCardPageProps) {
               className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${tab === 'redeem' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg' : 'glass text-slate-300 border border-white/10'}`}>
               <Ticket size={16} className="inline mr-1.5" />
               {lang === 'ar' ? 'استخدام كود' : 'Redeem'}
+            </button>
+            <button onClick={() => setTab('mygifts')}
+              className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${tab === 'mygifts' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg' : 'glass text-slate-300 border border-white/10'}`}>
+              <Package size={16} className="inline mr-1.5" />
+              {lang === 'ar' ? 'هداياي' : 'My Gifts'}
             </button>
           </div>
 
@@ -321,6 +355,47 @@ export default function GiftCardPage({ setCurrentPage }: GiftCardPageProps) {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* My Gifts Tab */}
+          {tab === 'mygifts' && (
+            <div className="glass rounded-2xl p-6 border border-white/10">
+              {myGiftsLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 size={24} className="animate-spin text-slate-400" />
+                </div>
+              ) : myGifts.length === 0 ? (
+                <div className="text-center py-10">
+                  <Package size={32} className="text-slate-500 mx-auto mb-3" />
+                  <p className="text-slate-400 text-sm">
+                    {lang === 'ar' ? 'لا توجد هدايا نشطة' : 'No active gifts'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {myGifts.map(g => (
+                    <div key={g.code} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${g.type === 'card' ? 'bg-pink-500/20' : 'bg-blue-500/20'}`}>
+                        {g.type === 'card' ? <Gift size={18} className="text-pink-400" /> : <BookOpen size={18} className="text-blue-400" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white text-xs font-mono font-bold">{g.code}</div>
+                        <div className="text-slate-400 text-xs">
+                          {g.type === 'card'
+                            ? (lang === 'ar' ? `${g.amount} EGP كارت رصيد` : `${g.amount} EGP Gift Card`)
+                            : (lang === 'ar' ? `هدية كورس - ${g.amount} EGP` : `Course Gift - ${g.amount} EGP`)}
+                        </div>
+                        {g.message && <div className="text-slate-500 text-xs truncate">"{g.message}"</div>}
+                      </div>
+                      <button onClick={() => handleCancelGift(g.code, g.type)} disabled={cancelling === g.code}
+                        className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-50">
+                        {cancelling === g.code ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </motion.div>
