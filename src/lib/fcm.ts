@@ -1,7 +1,7 @@
 import { ref, push, set } from 'firebase/database';
 import { rtdb } from './firebase';
 
-const VAPID_PUBLIC_KEY = 'BCSBSR6PvDWD0AHo3HT0QiZo6YbKE0RypBodZKmQ13Rj8_XwAV3yVmwWYU0niBbjK1z9BsLHF3LDmTAklZ30Pa0';
+const VAPID_PUBLIC_KEY = 'BHAzBHDOUWgg59DEltBqiCJX69fH0cP_femuOxP6dlkycfGHYFW3Id47lwwka_0pn6AzN6y4uAZSDDamFfgnBL4';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);

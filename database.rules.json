@@ -59,8 +59,8 @@
       }
     },
     "admin-push-subs": {
+      ".read": true,
       "$uid": {
-        ".read": "auth.uid === $uid",
         ".write": "auth.uid === $uid"
       }
     }

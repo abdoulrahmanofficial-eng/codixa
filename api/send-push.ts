@@ -2,6 +2,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import webpush from 'web-push';
 
+const RTDB_URL = 'https://codixa-io-default-rtdb.firebaseio.com';
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -14,24 +16,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     process.env.VAPID_PRIVATE_KEY!
   );
 
-  const subscriptions: any[] = [];
-
+  // Read all admin push subscriptions via RTDB REST API (no auth needed — .read: true)
+  let subscriptions: any[] = [];
   try {
-    const { default: admin } = await import('firebase-admin');
-
-    if (!admin.apps.length) {
-      if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-        return res.status(200).json({ ok: false, reason: 'FIREBASE_SERVICE_ACCOUNT env not set' });
-      }
-      admin.initializeApp({
-        credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
-        databaseURL: 'https://codixa-io-default-rtdb.firebaseio.com',
-      });
-    }
-
-    const snap = await admin.database().ref('admin-push-subs').once('value');
-    if (snap.exists()) {
-      const data = snap.val();
+    const resp = await fetch(`${RTDB_URL}/admin-push-subs.json`);
+    const data = await resp.json();
+    if (data && typeof data === 'object') {
       for (const uid of Object.keys(data)) {
         const subs = data[uid];
         if (typeof subs === 'object' && subs !== null) {
