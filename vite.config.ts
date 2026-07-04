@@ -15,7 +15,38 @@ export default defineConfig({
     react(),
     tailwindcss(),
     // viteSingleFile(),
-    // VitePWA temporarily disabled to clear old SW cache
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['icon.svg'],
+      manifest: {
+        name: 'Codixa',
+        short_name: 'Codixa',
+        description: 'منصة تعليمية متكاملة لتعلم البرمجة للأطفال والشباب بالعربية',
+        theme_color: '#0f172a',
+        background_color: '#0f172a',
+        display: 'standalone',
+        orientation: 'portrait',
+        lang: 'ar',
+        dir: 'rtl',
+        start_url: '/',
+        scope: '/',
+        icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        navigateFallback: null,
+        runtimeCaching: [
+          {
+            urlPattern: /^\/api\//,
+            handler: 'NetworkOnly',
+          },
+        ],
+      },
+    }),
   ],
   resolve: {
     alias: {
