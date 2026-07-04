@@ -24,30 +24,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       const data = await resp.json();
       if (resp.ok) return res.json({ ok: true, id: data.id });
-    } catch { /* fall through to SMTP */ }
+      // Resend returned an error — log and fall through
+      console.error('Resend error:', data);
+    } catch (e: any) { console.error('Resend exception:', e?.message); /* fall through to SMTP */ }
   }
 
-  // Fallback: Gmail SMTP via App Password
+  // Try different SMTP strategies for Gmail
   const SMTP_USER = process.env.SMTP_USER;
   const SMTP_PASS = process.env.SMTP_PASS;
   if (SMTP_USER && SMTP_PASS) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: { user: SMTP_USER, pass: SMTP_PASS },
-      });
-      await transporter.sendMail({
-        from: `"Codixa" <${SMTP_USER}>`,
-        to,
-        subject: 'كود تفعيل حسابك في كودكسا',
-        html: buildHtml(code, name),
-      });
-      return res.json({ ok: true });
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+    const errors: string[] = [];
+    // Strategy 1: port 587 STARTTLS
+    for (const { port, secure } of [{ port: 587, secure: false }, { port: 465, secure: true }]) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: 'smtp.gmail.com',
+          port,
+          secure,
+          auth: { user: SMTP_USER, pass: SMTP_PASS },
+        });
+        await transporter.sendMail({
+          from: `"Codixa" <${SMTP_USER}>`,
+          to,
+          subject: 'كود تفعيل حسابك في كودكسا',
+          html: buildHtml(code, name),
+        });
+        return res.json({ ok: true, via: `smtp:${port}` });
+      } catch (err: any) {
+        errors.push(`port ${port}: ${err.message}`);
+      }
     }
+    return res.status(500).json({ error: 'SMTP failed on all ports', details: errors });
   }
 
   res.json({ ok: false, reason: 'No email provider configured. Set RESEND_API_KEY or SMTP_USER+SMTP_PASS' });
