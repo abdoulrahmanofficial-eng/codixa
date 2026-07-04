@@ -27,7 +27,8 @@ function buildSystemPrompt(lessonContent: string, lessonTitle?: string, courseTi
     '- Be encouraging and supportive.',
     '- Respond in the same language as the lesson content (Arabic or English).',
     '- Format code blocks with triple backticks and the language name.',
-    '- Keep explanations concise and clear.',
+    '- Provide thorough, detailed explanations with practical examples.',
+    '- Use bullet points and code snippets to make explanations clear.',
   );
   return parts.join('\n');
 }

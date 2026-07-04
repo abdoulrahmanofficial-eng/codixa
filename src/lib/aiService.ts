@@ -1,6 +1,7 @@
 import type { ChatMessage } from './ai/types';
 
 interface StreamCallbacks {
+  signal?: AbortSignal;
   onToken: (token: string) => void;
   onDone: () => void;
   onError: (error: string) => void;
@@ -21,6 +22,7 @@ export async function sendChatMessage(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, history, lessonContent, lessonTitle, courseTitle }),
+      signal: callbacks.signal,
     });
 
     if (!response.ok) {
@@ -36,18 +38,18 @@ export async function sendChatMessage(
     }
 
     const decoder = new TextDecoder();
-    let buffer = '';
+    let fullText = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      onToken(buffer);
-      buffer = '';
+      fullText += decoder.decode(value, { stream: true });
+      onToken(fullText);
     }
 
     onDone();
   } catch (e: any) {
+    if (callbacks.signal?.aborted) return;
     onError(e.message || 'Connection error');
   }
 }

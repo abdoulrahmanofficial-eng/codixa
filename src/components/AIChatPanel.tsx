@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, X, Send, Loader2, Copy, CheckCircle, Sparkles, Bot, User, AlertCircle } from 'lucide-react';
+import { X, Send, Loader2, Copy, CheckCircle, Sparkles, Bot, User, AlertCircle, Square } from 'lucide-react';
 import { sendChatMessage } from '../lib/aiService';
 import type { ChatMessage } from '../lib/ai/types';
 
@@ -26,7 +26,7 @@ function formatMarkdown(text: string): string {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     .replace(/^### (.+)$/gm, '<h3 class="chat-h3">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 class="chat-h2">$2</h2>')
+    .replace(/^## (.+)$/gm, '<h2 class="chat-h2">$1</h2>')
     .replace(/^# (.+)$/gm, '<h1 class="chat-h1">$1</h1>')
     .replace(/^- (.+)$/gm, '<li class="chat-li">$1</li>')
     .replace(/^\d+\. (.+)$/gm, '<li class="chat-li">$1</li>')
@@ -56,6 +56,7 @@ export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }:
   const panelRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const streamingTextRef = useRef('');
+  const abortRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -79,6 +80,9 @@ export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }:
     setStreamingText('');
     streamingTextRef.current = '';
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     const userMsg: ChatMessage = { role: 'user', content: msg };
     setMessages(prev => [...prev, userMsg]);
 
@@ -91,25 +95,43 @@ export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }:
       lessonTitle,
       courseTitle,
       {
+        signal: controller.signal,
         onToken: (token) => {
           streamingTextRef.current = token;
           setStreamingText(token);
         },
         onDone: () => {
           const finalText = streamingTextRef.current;
-          setMessages(prev => [...prev, { role: 'assistant', content: finalText }]);
+          if (finalText) {
+            setMessages(prev => [...prev, { role: 'assistant', content: finalText }]);
+          }
           setStreamingText('');
           setStreaming(false);
           streamingTextRef.current = '';
+          abortRef.current = null;
         },
         onError: (errMsg) => {
+          if (errMsg === 'Aborted') return;
           setError(errMsg);
           setStreaming(false);
           setStreamingText('');
           streamingTextRef.current = '';
+          abortRef.current = null;
         },
       },
     );
+  };
+
+  const handleStop = () => {
+    abortRef.current?.abort();
+    setStreaming(false);
+    const finalText = streamingTextRef.current;
+    if (finalText) {
+      setMessages(prev => [...prev, { role: 'assistant', content: finalText }]);
+    }
+    setStreamingText('');
+    streamingTextRef.current = '';
+    abortRef.current = null;
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -251,7 +273,7 @@ export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }:
                     <Bot size={14} className="text-white" />
                   </div>
                   <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white/5 text-slate-200 rounded-tl-sm border border-white/5">
-                    {renderMessage(streamingText)}
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{streamingText}</pre>
                     <span className="inline-block w-2 h-4 bg-purple-400 ml-0.5 animate-pulse" />
                   </div>
                 </div>
@@ -290,20 +312,33 @@ export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }:
                 <textarea
                   ref={inputRef}
                   value={input}
-                  onChange={e => setInput(e.target.value)}
+                  onChange={e => {
+                    setInput(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder="Ask a programming question..."
                   rows={1}
                   className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:border-indigo-500 transition-all resize-none placeholder:text-slate-500"
-                  style={{ minHeight: 40, maxHeight: 100 }}
+                  style={{ minHeight: 40, maxHeight: 120 }}
                 />
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || streaming}
-                  className="w-10 h-10 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-center hover:opacity-90 transition-all disabled:opacity-40 shrink-0"
-                >
-                  {streaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                </button>
+                {streaming ? (
+                  <button
+                    onClick={handleStop}
+                    className="w-10 h-10 rounded-xl bg-red-500/80 text-white flex items-center justify-center hover:bg-red-500 transition-all shrink-0"
+                  >
+                    <Square size={14} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSend}
+                    disabled={!input.trim()}
+                    className="w-10 h-10 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-center hover:opacity-90 transition-all disabled:opacity-40 shrink-0"
+                  >
+                    <Send size={16} />
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>
