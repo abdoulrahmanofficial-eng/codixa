@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserProfile, Transaction, AppNotification } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
@@ -57,24 +57,34 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   const [adminSearchQuery, setAdminSearchQuery] = useState('');
   const [toast, setToast] = useState<{ message: string; userName: string; amount: number } | null>(null);
 
-  // Real-time listener for new pending deposits
+  // Pre-mark existing pending-deposits keys so onChildAdded only fires for truly new ones
+  const pendingNotified = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!isAdmin) return;
-    let notified = false;
+    requestNotificationPermission();
     const pendingRef = ref(rtdb, 'pending-deposits');
+
+    // Mark all existing children as seen to avoid re-notifying
+    get(pendingRef).then((snap) => {
+      if (snap.exists()) {
+        Object.keys(snap.val()).forEach((key) => pendingNotified.current.add(key));
+      }
+    });
+
     const handler = onChildAdded(pendingRef, (snap) => {
+      const key = snap.key;
+      if (!key || pendingNotified.current.has(key)) return;
+      pendingNotified.current.add(key);
       const data = snap.val();
       if (data?.userName && data?.amount) {
         playNotificationSound();
         setToast({ message: lang === 'ar' ? 'طلب شحن جديد' : 'New deposit request', userName: data.userName, amount: data.amount });
         setTimeout(() => setToast(null), 6000);
-        if (!notified) {
-          showBrowserNotification(
-            lang === 'ar' ? '💰 طلب شحن جديد' : '💰 New Deposit',
-            `${data.userName} — ${data.amount} EGP`
-          );
-        }
-        notified = true;
+        showBrowserNotification(
+          lang === 'ar' ? '💰 طلب شحن جديد' : '💰 New Deposit',
+          `${data.userName} — ${data.amount} EGP`
+        );
       }
     });
     return () => off(pendingRef, 'child_added', handler);
@@ -83,7 +93,6 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   useEffect(() => {
     if (!isAdmin) return;
     loadData();
-    requestNotificationPermission();
   }, [isAdmin]);
 
   const loadData = async () => {
