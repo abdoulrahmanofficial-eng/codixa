@@ -60,9 +60,7 @@
     },
     "admin-push-subs": {
       ".read": true,
-      "$uid": {
-        ".write": "auth.uid === $uid"
-      }
+      ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
     }
   }
 }

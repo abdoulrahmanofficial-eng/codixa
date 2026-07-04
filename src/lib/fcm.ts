@@ -1,4 +1,4 @@
-import { ref, push, set } from 'firebase/database';
+import { ref, set } from 'firebase/database';
 import { rtdb } from './firebase';
 
 const VAPID_PUBLIC_KEY = 'BHAzBHDOUWgg59DEltBqiCJX69fH0cP_femuOxP6dlkycfGHYFW3Id47lwwka_0pn6AzN6y4uAZSDDamFfgnBL4';
@@ -47,8 +47,8 @@ export async function subscribeToPush(uid: string): Promise<boolean> {
       });
     }
 
-    const subRef = push(ref(rtdb, `admin-push-subs/${uid}`));
-    await set(subRef, subscription.toJSON());
+    // Use fixed key 'default' so old subscription is replaced (no duplicates)
+    await set(ref(rtdb, `admin-push-subs/${uid}/default`), subscription.toJSON());
 
     return true;
   } catch (err) {

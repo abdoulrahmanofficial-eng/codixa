@@ -1,0 +1,69 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth.uid !== null",
+      ".write": "auth.uid !== null",
+      "$uid": {
+        ".read": "auth.uid === $uid || root.child('users').child(auth.uid).child('isAdmin').val() === true",
+        ".write": "auth.uid === $uid || root.child('users').child(auth.uid).child('isAdmin').val() === true"
+      }
+    },
+    "dynamic-courses": {
+      ".read": "auth.uid !== null",
+      "$courseId": {
+        ".read": "auth.uid !== null",
+        "lessons": {
+          ".read": "auth.uid !== null && (data.child('content').exists() === false || root.child('users').child(auth.uid).child('purchasedCourses').child($courseId).exists() || root.child('dynamic-courses').child($courseId).child('free').val() === true || root.child('users').child(auth.uid).child('isAdmin').val() === true)",
+          "$lessonId": {
+            ".read": "auth.uid !== null && (root.child('users').child(auth.uid).child('purchasedCourses').child($courseId).exists() || root.child('dynamic-courses').child($courseId).child('free').val() === true || root.child('users').child(auth.uid).child('isAdmin').val() === true)",
+            ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+          }
+        },
+        ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+      }
+    },
+    "config": {
+      ".read": true,
+      "maintenance": {
+        ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+      }
+    },
+    "course-prices": {
+      ".read": true,
+      ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+    },
+    "discount-codes": {
+      ".read": true,
+      ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+    },
+    "notifications": {
+      ".read": "auth.uid !== null",
+      ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
+    },
+    "gift-cards": {
+      ".read": "auth.uid !== null",
+      ".write": "auth.uid !== null"
+    },
+    "gift-courses": {
+      ".read": "auth.uid !== null",
+      ".write": "auth.uid !== null"
+    },
+    "pending-deposits": {
+      ".read": "root.child('users').child(auth.uid).child('isAdmin').val() === true",
+      ".write": "auth.uid !== null"
+    },
+    "admin-fcm-tokens": {
+      ".read": "root.child('users').child(auth.uid).child('isAdmin').val() === true",
+      "$uid": {
+        ".write": "auth.uid === $uid"
+      }
+    },
+    "admin-push-subs": {
+      ".read": true,
+      ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true",
+      "$uid": {
+        ".write": "auth.uid === $uid"
+      }
+    }
+  }
+}

@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   );
 
   // Read all admin push subscriptions via RTDB REST API (no auth needed — .read: true)
-  let subscriptions: any[] = [];
+  const subsList: any[] = [];
   try {
     const resp = await fetch(`${RTDB_URL}/admin-push-subs.json`);
     const data = await resp.json();
@@ -28,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           for (const key of Object.keys(subs)) {
             const sub = subs[key];
             if (sub?.endpoint && sub?.keys) {
-              subscriptions.push(sub);
+              subsList.push(sub);
             }
           }
         }
@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: err.message || 'Failed to read subscriptions' });
   }
 
-  if (subscriptions.length === 0) {
+  if (subsList.length === 0) {
     return res.json({ ok: true, sent: 0, total: 0 });
   }
 
@@ -51,12 +51,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   const results = await Promise.allSettled(
-    subscriptions.map((sub: any) => webpush.sendNotification(sub, payload))
+    subsList.map((sub: any) => webpush.sendNotification(sub, payload))
   );
 
   res.json({
     ok: true,
     sent: results.filter(r => r.status === 'fulfilled').length,
-    total: subscriptions.length,
+    total: subsList.length,
   });
 }
