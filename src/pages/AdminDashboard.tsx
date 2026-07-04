@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import type { UserProfile, Transaction } from '../contexts/AuthContext';
+import type { UserProfile, Transaction, AppNotification } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { getDynamicCourses, updateCoursePrice as updateDynamicPrice, type BackendCourse } from '../lib/courseService';
 import { setCoursePrice, getAllPriceOverrides, removeCoursePrice } from '../lib/priceService';
@@ -9,20 +9,22 @@ import SeedCoursePanel from './SeedCoursePanel';
 import {
   Users, ShoppingCart, CheckCircle, XCircle, TrendingUp, Loader2, ArrowLeft,
   Search, Shield, ShieldOff, UserCog, Activity, CreditCard, BookOpen, Star, DollarSign,
-  Calendar, Filter, RefreshCw, ChevronDown, ChevronUp, Plus, Minus, Edit3, Tag
+  Calendar, Filter, RefreshCw, ChevronDown, ChevronUp, Plus, Minus, Edit3, Tag,
+  Bell, Send
 } from 'lucide-react';
 
 interface AdminDashboardProps {
   setCurrentPage: (page: string) => void;
 }
 
-type AdminTab = 'overview' | 'users' | 'transactions' | 'courses' | 'settings';
+type AdminTab = 'overview' | 'users' | 'transactions' | 'courses' | 'settings' | 'notifications';
 
 export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) {
   const { t, lang } = useI18n();
-  const { isAdmin, profile, getAllUsers, getAllTransactions, approveDeposit, rejectDeposit, setAdminRole, addUserBalance, deductUserBalance, transferBalance, createDiscountCode, getAllDiscountCodes, deleteDiscountCode, deleteUser } = useAuth();
+  const { isAdmin, profile, getAllUsers, getAllTransactions, approveDeposit, rejectDeposit, setAdminRole, addUserBalance, deductUserBalance, transferBalance, createDiscountCode, getAllDiscountCodes, deleteDiscountCode, deleteUser, createNotification, getNotifications, markNotificationRead } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<AdminTab>('overview');
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,6 +46,9 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   const [priceInput, setPriceInput] = useState('');
   const [priceSaving, setPriceSaving] = useState(false);
   const [priceOverrides, setPriceOverrides] = useState<Record<string, number>>({});
+  const [notifTitle, setNotifTitle] = useState('');
+  const [notifBody, setNotifBody] = useState('');
+  const [notifSending, setNotifSending] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -53,12 +58,13 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [allUsers, allTx, courses, overrides, codes] = await Promise.all([getAllUsers(), getAllTransactions(), getDynamicCourses(), getAllPriceOverrides(), getAllDiscountCodes()]);
+      const [allUsers, allTx, courses, overrides, codes, notifs] = await Promise.all([getAllUsers(), getAllTransactions(), getDynamicCourses(), getAllPriceOverrides(), getAllDiscountCodes(), getNotifications()]);
       setUsers(allUsers);
       setTransactions(allTx);
       setDynamicCourses(courses);
       setPriceOverrides(overrides);
       setDiscountCodes(codes);
+      setNotifications(notifs);
     } catch (err) {
       console.error(err);
     } finally {
@@ -211,6 +217,7 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
     { id: 'transactions', label: lang === 'ar' ? 'المعاملات' : 'Transactions', icon: <CreditCard size={16} />, badge: pendingTx.length },
     { id: 'courses', label: lang === 'ar' ? 'الكورسات' : 'Courses', icon: <BookOpen size={16} />, badge: staticCourses.length + dynamicCourses.length },
     { id: 'settings', label: lang === 'ar' ? 'الإعدادات' : 'Settings', icon: <UserCog size={16} /> },
+    { id: 'notifications', label: lang === 'ar' ? 'الإشعارات' : 'Notifications', icon: <Bell size={16} /> },
   ];
 
   const StatusBadge = ({ status }: { status: string }) => {
@@ -806,6 +813,78 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                       <div className="text-slate-400 text-xs mb-1">{lang === 'ar' ? 'متوسط الدخل لكل مستخدم' : 'Avg revenue per user'}</div>
                       <div className="text-white font-bold text-lg">{users.length > 0 ? (totalRevenue / users.length).toFixed(0) : 0} EGP</div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Notifications Tab ── */}
+            {tab === 'notifications' && (
+              <div className="glass rounded-2xl p-6 border border-white/10">
+                <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+                  <Bell size={18} className="text-indigo-400" />
+                  {lang === 'ar' ? 'إرسال إشعار جديد' : 'Send New Notification'}
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-slate-300 text-sm font-medium mb-1.5">
+                      {lang === 'ar' ? 'العنوان' : 'Title'}
+                    </label>
+                    <input type="text" value={notifTitle} onChange={e => setNotifTitle(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:border-indigo-500 transition-all"
+                      placeholder={lang === 'ar' ? 'عنوان الإشعار' : 'Notification title'} />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 text-sm font-medium mb-1.5">
+                      {lang === 'ar' ? 'المحتوى' : 'Body'}
+                    </label>
+                    <textarea value={notifBody} onChange={e => setNotifBody(e.target.value)} rows={3}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:border-indigo-500 transition-all resize-none"
+                      placeholder={lang === 'ar' ? 'محتوى الإشعار' : 'Notification body'} />
+                  </div>
+                  <button onClick={async () => {
+                    if (!notifTitle.trim() || !notifBody.trim()) return;
+                    setNotifSending(true);
+                    try {
+                      await createNotification(notifTitle.trim(), notifBody.trim());
+                      setNotifTitle('');
+                      setNotifBody('');
+                      const notifs = await getNotifications();
+                      setNotifications(notifs);
+                    } catch (e: any) {
+                      alert(e.message);
+                    } finally {
+                      setNotifSending(false);
+                    }
+                  }} disabled={notifSending || !notifTitle.trim() || !notifBody.trim()}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50">
+                    {notifSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                    {lang === 'ar' ? 'إرسال الإشعار' : 'Send Notification'}
+                  </button>
+                </div>
+
+                <div className="mt-8">
+                  <h4 className="text-white font-bold text-md mb-3 flex items-center gap-2">
+                    <Bell size={16} className="text-purple-400" />
+                    {lang === 'ar' ? 'الإشعارات السابقة' : 'Previous Notifications'}
+                  </h4>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {notifications.length === 0 && (
+                      <p className="text-slate-500 text-sm">{lang === 'ar' ? 'لا توجد إشعارات بعد' : 'No notifications yet'}</p>
+                    )}
+                    {notifications.map(n => (
+                      <div key={n.id} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-white font-semibold text-sm">{n.title}</div>
+                            <div className="text-slate-400 text-xs mt-1">{n.body}</div>
+                          </div>
+                          <div className="text-slate-500 text-[10px] whitespace-nowrap">
+                            {new Date(n.createdAt).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

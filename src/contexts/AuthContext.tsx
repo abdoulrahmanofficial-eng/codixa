@@ -46,6 +46,14 @@ export interface UserProfile {
   avatar?: string;
   lastCourse?: string;
   lastLesson?: Record<string, string>; // { courseId: lessonId }
+  readNotifications?: Record<string, boolean>;
+}
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: number;
 }
 
 interface AuthContextType {
@@ -78,6 +86,9 @@ interface AuthContextType {
   sendVerificationEmail: () => Promise<void>;
   verifyEmail: (oobCode: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
+  createNotification: (title: string, body: string) => Promise<void>;
+  getNotifications: () => Promise<AppNotification[]>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -112,6 +123,9 @@ const AuthContext = createContext<AuthContextType>({
   sendVerificationEmail: async () => {},
   verifyEmail: async () => {},
   deleteUser: async () => {},
+  createNotification: async () => {},
+  getNotifications: async () => [],
+  markNotificationRead: async () => {},
   isAdmin: false,
 });
 
@@ -451,8 +465,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const deleteUserFn = async (userId: string) => {
     if (!isAdmin) throw new Error('Admin only');
-    // Delete RTDB user data
     await set(ref(rtdb, `users/${userId}`), null);
+  };
+
+  const createNotificationFn = async (title: string, body: string) => {
+    if (!isAdmin) throw new Error('Admin only');
+    const notifRef = push(ref(rtdb, 'notifications'));
+    await set(notifRef, { title, body, createdAt: Date.now() });
+  };
+
+  const getNotificationsFn = async (): Promise<AppNotification[]> => {
+    const snap = await get(ref(rtdb, 'notifications'));
+    if (!snap.exists()) return [];
+    const data = snap.val();
+    return Object.entries(data)
+      .map(([id, val]: any) => ({ id, ...val }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+  };
+
+  const markNotificationReadFn = async (notificationId: string) => {
+    if (!user) return;
+    await update(ref(rtdb, `users/${user.uid}/readNotifications`), { [notificationId]: true });
   };
 
   const createDiscountCode = async (code: string, percentage: number) => {
@@ -633,6 +666,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       deductUserBalance,
       transferBalance,
       deleteUser: deleteUserFn,
+      createNotification: createNotificationFn,
+      getNotifications: getNotificationsFn,
+      markNotificationRead: markNotificationReadFn,
       createDiscountCode,
       getAllDiscountCodes,
       deleteDiscountCode,
