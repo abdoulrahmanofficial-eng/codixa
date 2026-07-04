@@ -108,6 +108,7 @@ function parseQuiz(content) {
     // If no A-D) pattern found, try detecting unlabeled options (file_1 Q3/Q4 style)
     let options;
     let correctIdx = -1;
+    let questionText;
 
     if (optionLines.length > 0) {
       options = optionLines.map(o => {
@@ -128,14 +129,31 @@ function parseQuiz(content) {
           return cleanOpt === cleanAns;
         });
       }
+
+      // Extract question text: everything before the first option line
+      questionText = beforeAnswer;
+      for (const line of lines.slice(0, answerIdx)) {
+        const trimmed = line.trim();
+        if (/^[-]?\s*[A-D]\)/.test(trimmed) || /^[-]?\s*[A-D]\)\s*$/.test(trimmed) || /^-\s*.+/.test(trimmed)) {
+          questionText = questionText.replace(trimmed, '').trim();
+        }
+      }
+      questionText = questionText.replace(/^-\s*/, '').trim();
     } else {
       // Unlabeled options (file_1 Q3/Q4 style): lines that are just text, no A-B pattern
-      const unlabeledLines = beforeAnswer.split('\n')
-        .map(l => l.trim().replace(/^-\s*/, ''))
-        .filter(l => l && !l.startsWith('#'));
+      // Extract question text (lines before the first `- ` prefixed line)
+      const firstOptionIdx = lines.slice(0, answerIdx).findIndex(l => /^-\s*/.test(l.trim()));
+      questionText = firstOptionIdx >= 0
+        ? lines.slice(0, firstOptionIdx).join('\n').trim()
+        : beforeAnswer;
 
-      if (unlabeledLines.length >= 2) {
-        options = unlabeledLines;
+      // Options are the lines starting with `- `
+      options = lines.slice(0, answerIdx)
+        .filter(l => /^-\s*/.test(l.trim()))
+        .map(l => l.trim().replace(/^-\s*/, ''))
+        .filter(l => l);
+
+      if (options.length >= 2) {
         correctIdx = options.findIndex(opt => {
           const cleanOpt = opt.replace(/[.۔\s]+$/, '').trim();
           const cleanAns = answerText.replace(/[.۔\s]+$/, '').trim();
@@ -145,17 +163,6 @@ function parseQuiz(content) {
     }
 
     if (!options || correctIdx === -1) continue;
-
-    // Extract question text: everything before the first option line
-    let questionText = beforeAnswer;
-    // Remove the option lines from the question text
-    for (const line of lines.slice(0, answerIdx)) {
-      const trimmed = line.trim();
-      if (/^[-]?\s*[A-D]\)/.test(trimmed) || /^[-]?\s*[A-D]\)\s*$/.test(trimmed) || /^-\s*.+/.test(trimmed)) {
-        questionText = questionText.replace(trimmed, '').trim();
-      }
-    }
-    questionText = questionText.replace(/^-\s*/, '').trim();
 
     questions.push({
       question: questionText,

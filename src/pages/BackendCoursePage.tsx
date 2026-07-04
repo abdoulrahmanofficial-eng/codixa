@@ -178,12 +178,18 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
   }, [quiz]);
 
   const question = quiz[currentQ];
+  const cleanQuestionText = cleanQuestion(question?.question || '');
+  const cleanOptions = question?.options
+    .map((opt, i) => ({ text: opt, origIndex: i }))
+    .filter(({ text }) => text !== cleanQuestionText)
+    .map(({ text, origIndex }) => ({ text, origIndex }));
+  const adjustedCorrect = question ? cleanOptions.findIndex(o => o.origIndex === question.correct) : -1;
 
   const handleSelect = (idx: number) => {
     if (answered) return;
     setSelected(idx);
     setAnswered(true);
-    if (idx === question.correct) {
+    if (idx === adjustedCorrect) {
       setScore(s => s + 1);
     }
   };
@@ -244,16 +250,16 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
       </div>
 
       <h3 className="text-white font-bold text-lg sm:text-xl mb-6 leading-relaxed">
-        {cleanQuestion(question.question)}
+        {cleanQuestionText}
       </h3>
 
       <div className="space-y-3 mb-6">
-        {question.options.map((option, idx) => (
-          <button key={idx} onClick={() => handleSelect(idx)}
+        {cleanOptions.map((option, idx) => (
+          <button key={option.origIndex} onClick={() => handleSelect(idx)}
             className={`w-full text-right p-4 rounded-xl border transition-all quiz-option ${
               !answered
                 ? 'border-white/10 text-slate-300 hover:border-indigo-500 hover:bg-indigo-500/10'
-                : idx === question.correct
+                : idx === adjustedCorrect
                 ? 'correct border-green-500 bg-green-500/10 text-green-400'
                 : idx === selected
                 ? 'wrong border-red-500 bg-red-500/10 text-red-400'
@@ -262,13 +268,13 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
             <div className="flex items-center gap-3">
               <span className={`w-8 h-8 rounded-lg border flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                 !answered ? 'border-current' :
-                idx === question.correct ? 'border-green-500 bg-green-500 text-white' :
+                idx === adjustedCorrect ? 'border-green-500 bg-green-500 text-white' :
                 idx === selected ? 'border-red-500 bg-red-500 text-white' :
                 'border-white/10'
               }`}>
                 {String.fromCharCode(65 + idx)}
               </span>
-              <span className="font-medium">{option}</span>
+              <span className="font-medium">{option.text}</span>
             </div>
           </button>
         ))}
@@ -276,13 +282,13 @@ function QuizComponent({ quiz, onComplete }: { quiz: QuizQuestion[]; onComplete:
 
       {answered && (
         <div className={`p-4 rounded-xl mb-6 border ${
-          selected === question.correct
+          selected === adjustedCorrect
             ? 'bg-green-500/10 border-green-500/30 text-green-300'
             : 'bg-red-500/10 border-red-500/30 text-red-300'
         }`}>
           <div className="font-bold mb-1 flex items-center gap-2">
-            {selected === question.correct ? <CheckCircle size={16} /> : '❌'}
-            {selected === question.correct ? `${t('lesson.quiz.correct')} 🎉` : t('lesson.quiz.wrong')}
+            {selected === adjustedCorrect ? <CheckCircle size={16} /> : '❌'}
+            {selected === adjustedCorrect ? `${t('lesson.quiz.correct')} 🎉` : t('lesson.quiz.wrong')}
           </div>
           <p className="text-sm">{question.explanation}</p>
         </div>
