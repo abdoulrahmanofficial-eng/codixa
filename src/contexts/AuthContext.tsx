@@ -572,6 +572,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await update(ref(rtdb, `gift-cards/${code}`), {
       status: 'redeemed', redeemedAt: Date.now(), redeemedBy: user.uid,
     });
+    await refreshProfile();
     return { senderName: card.senderName, message: card.message || '', type: 'card' as const };
   };
 
@@ -622,6 +623,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await update(ref(rtdb, `gift-courses/${code}`), {
       status: 'redeemed', redeemedAt: Date.now(), redeemedBy: user.uid,
     });
+    await refreshProfile();
     return { senderName: gc.senderName, message: gc.message || '', type: 'course' as const, courseId: gc.courseId };
   };
 
@@ -679,6 +681,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await update(ref(rtdb, `${root}/${code}`), {
       status: 'cancelled', cancelledAt: Date.now(),
     });
+    await refreshProfile();
   };
 
   const createDiscountCode = async (code: string, percentage: number) => {
