@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Code2, User, Wallet, Menu, Bell } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,11 +15,9 @@ interface HeaderProps {
 
 export default function Header({ currentPage, setCurrentPage, onMenuClick }: HeaderProps) {
   const { t, lang } = useI18n();
-  const { user, profile, getNotifications, markNotificationRead } = useAuth();
+  const { user, profile, getNotifications } = useAuth();
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter(n => !profile?.readNotifications?.[n.id]).length;
 
@@ -33,22 +31,6 @@ export default function Header({ currentPage, setCurrentPage, onMenuClick }: Hea
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, [user, getNotifications]);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  const handleOpenNotifs = () => {
-    setNotifOpen(prev => !prev);
-    if (!notifOpen) {
-      const unreadIds = notifications.filter(n => !profile?.readNotifications?.[n.id]).map(n => n.id);
-      unreadIds.forEach(id => markNotificationRead(id));
-    }
-  };
 
   return (
     <motion.header
@@ -88,49 +70,15 @@ export default function Header({ currentPage, setCurrentPage, onMenuClick }: Hea
                 <span>{formatEGP(profile?.wallet?.balance || 0)}</span>
               </button>
 
-              <div ref={notifRef} className="relative">
-                <button onClick={handleOpenNotifs}
-                  className="relative w-10 h-10 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 transition-all">
-                  <Bell size={18} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -end-0.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-red-500/30">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
-                <AnimatePresence>
-                  {notifOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute end-0 mt-2 w-80 sm:w-96 rounded-2xl glass border border-white/10 shadow-2xl shadow-black/50 overflow-hidden"
-                    >
-                      <div className="p-3 border-b border-white/10">
-                        <span className="text-white font-bold text-sm">
-                          {lang === 'ar' ? 'الإشعارات' : 'Notifications'}
-                        </span>
-                      </div>
-                      <div className="max-h-80 overflow-y-auto">
-                        {notifications.length === 0 ? (
-                          <div className="p-6 text-center text-slate-500 text-sm">
-                            {lang === 'ar' ? 'لا توجد إشعارات' : 'No notifications'}
-                          </div>
-                        ) : (
-                          notifications.map(n => (
-                            <div key={n.id} className={`p-3 border-b border-white/5 hover:bg-white/5 transition-all ${profile?.readNotifications?.[n.id] ? 'opacity-60' : ''}`}>
-                              <div className="text-white text-sm font-semibold">{n.title}</div>
-                              <div className="text-slate-400 text-xs mt-0.5">{n.body}</div>
-                              <div className="text-slate-500 text-[10px] mt-1">{new Date(n.createdAt).toLocaleDateString(lang === 'ar' ? 'ar' : 'en')}</div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <button onClick={() => setCurrentPage('notifications')}
+                className="relative w-10 h-10 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 transition-all">
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -end-0.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-red-500/30">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
             </>
           )}
 
