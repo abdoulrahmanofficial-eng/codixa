@@ -8,7 +8,7 @@ import { courses as staticCourses } from '../data/courses';
 import SeedCoursePanel from './SeedCoursePanel';
 import { ref, get, set, onChildAdded, off } from 'firebase/database';
 import { rtdb } from '../lib/firebase';
-import { initAdminFcm } from '../lib/fcm';
+import { requestNotificationPermission, showBrowserNotification } from '../lib/fcm';
 import {
   Users, ShoppingCart, CheckCircle, XCircle, TrendingUp, Loader2, ArrowLeft,
   Search, Shield, ShieldOff, UserCog, Activity, CreditCard, BookOpen, Star, DollarSign,
@@ -60,6 +60,7 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   // Real-time listener for new pending deposits
   useEffect(() => {
     if (!isAdmin) return;
+    let notified = false;
     const pendingRef = ref(rtdb, 'pending-deposits');
     const handler = onChildAdded(pendingRef, (snap) => {
       const data = snap.val();
@@ -67,6 +68,13 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
         playNotificationSound();
         setToast({ message: lang === 'ar' ? 'طلب شحن جديد' : 'New deposit request', userName: data.userName, amount: data.amount });
         setTimeout(() => setToast(null), 6000);
+        if (!notified) {
+          showBrowserNotification(
+            lang === 'ar' ? '💰 طلب شحن جديد' : '💰 New Deposit',
+            `${data.userName} — ${data.amount} EGP`
+          );
+        }
+        notified = true;
       }
     });
     return () => off(pendingRef, 'child_added', handler);
@@ -75,7 +83,7 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   useEffect(() => {
     if (!isAdmin) return;
     loadData();
-    initAdminFcm();
+    requestNotificationPermission();
   }, [isAdmin]);
 
   const loadData = async () => {
