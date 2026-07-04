@@ -146,7 +146,7 @@ export default function HomePage({ setCurrentPage, setSelectedCourse }: HomePage
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-fadeInUp">
             <button
-              onClick={() => setCurrentPage('courses')}
+              onClick={() => setCurrentPage(user ? 'courses' : 'auth')}
               className="flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold text-lg hover:opacity-90 transition-all hover:scale-105 shadow-2xl shadow-indigo-500/40"
             >
               <Rocket size={20} />
@@ -449,7 +449,7 @@ export default function HomePage({ setCurrentPage, setSelectedCourse }: HomePage
                 {t('home.cta.desc')}
               </p>
               <button
-                onClick={() => setCurrentPage('courses')}
+                onClick={() => setCurrentPage(user ? 'courses' : 'auth')}
                 className="inline-flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black text-xl hover:opacity-90 transition-all hover:scale-105 shadow-2xl shadow-indigo-500/40"
               >
                 <Rocket size={24} />
