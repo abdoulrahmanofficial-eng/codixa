@@ -91,6 +91,8 @@ interface AuthContextType {
   getNotifications: () => Promise<AppNotification[]>;
   markNotificationRead: (notificationId: string) => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
+  createGiftCard: (amount: number, message?: string) => Promise<string>;
+  redeemGiftCard: (code: string) => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -130,6 +132,8 @@ const AuthContext = createContext<AuthContextType>({
   getNotifications: async () => [],
   markNotificationRead: async () => {},
   deleteNotification: async () => {},
+  createGiftCard: async () => '',
+  redeemGiftCard: async () => {},
   isAdmin: false,
 });
 
@@ -512,6 +516,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await set(ref(rtdb, `notifications/${notificationId}`), null);
   };
 
+  const createGiftCardFn = async (amount: number, message?: string): Promise<string> => {
+    if (!user || !profile) throw new Error('Not logged in');
+    if (amount < 10) throw new Error('Minimum 10 EGP');
+    const balance = profile.wallet?.balance || 0;
+    if (amount > balance) throw new Error('Insufficient balance');
+    const code = 'GIFT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    await set(ref(rtdb, `gift-cards/${code}`), {
+      code, amount, message: message || '',
+      senderName: profile.name || user.email,
+      senderUid: user.uid,
+      createdAt: Date.now(),
+      redeemedAt: null, redeemedBy: null, status: 'active',
+    });
+    // Deduct from sender
+    const txRef = push(ref(rtdb, `users/${user.uid}/wallet/transactions`));
+    await set(txRef, {
+      type: 'purchase', amount, date: Date.now(), status: 'completed',
+      description: `Gift Card ${code}`,
+    });
+    await update(ref(rtdb, `users/${user.uid}`), {
+      ['wallet/balance']: balance - amount,
+    });
+    return code;
+  };
+
+  const redeemGiftCardFn = async (code: string) => {
+    if (!user) throw new Error('Not logged in');
+    const snap = await get(ref(rtdb, `gift-cards/${code}`));
+    if (!snap.exists()) throw new Error('Invalid gift card code');
+    const card = snap.val();
+    if (card.status !== 'active') throw new Error('Gift card already used');
+    if (card.senderUid === user.uid) throw new Error('Cannot redeem your own gift card');
+    // Add to recipient
+    const recipSnap = await get(ref(rtdb, `users/${user.uid}`));
+    if (!recipSnap.exists()) throw new Error('User not found');
+    const recipData = recipSnap.val();
+    const txRef = push(ref(rtdb, `users/${user.uid}/wallet/transactions`));
+    await set(txRef, {
+      type: 'deposit', amount: card.amount, date: Date.now(), status: 'completed',
+      description: `Gift Card from ${card.senderName}`,
+    });
+    await update(ref(rtdb, `users/${user.uid}`), {
+      ['wallet/balance']: (recipData.wallet?.balance || 0) + card.amount,
+    });
+    // Mark redeemed
+    await update(ref(rtdb, `gift-cards/${code}`), {
+      status: 'redeemed', redeemedAt: Date.now(), redeemedBy: user.uid,
+    });
+  };
+
   const createDiscountCode = async (code: string, percentage: number) => {
     if (!isAdmin) return;
     await set(ref(rtdb, `discount-codes/${code.toUpperCase()}`), {
@@ -695,6 +749,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       getNotifications: getNotificationsFn,
       markNotificationRead: markNotificationReadFn,
       deleteNotification: deleteNotificationFn,
+      createGiftCard: createGiftCardFn,
+      redeemGiftCard: redeemGiftCardFn,
       createDiscountCode,
       getAllDiscountCodes,
       deleteDiscountCode,

@@ -21,6 +21,7 @@ import CertificatePage from './pages/CertificatePage';
 import AboutPage from './pages/AboutPage';
 import BackendCoursePage from './pages/BackendCoursePage';
 import NotificationsPage from './pages/NotificationsPage';
+import GiftCardPage from './pages/GiftCardPage';
 
 const pageMap: Record<string, string> = {
   home: '/',
@@ -36,6 +37,7 @@ const pageMap: Record<string, string> = {
   'backend-course': '/backend-course',
   admin: '/admin',
   notifications: '/notifications',
+  giftcard: '/giftcard',
 };
 
 const noHeaderPaths = ['/lesson', '/auth', '/payment', '/certificate', '/backend-course'];
@@ -101,6 +103,7 @@ function RAbout() { const n = useNavigate(); const sp = useCallback((p: string) 
 function RAdmin() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="admin"><AdminDashboard setCurrentPage={sp} /></AppShell>; }
 function RBackend() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell showHeader={false} setCurrentPage={sp} pageName="backend-course"><BackendCoursePage setCurrentPage={sp} /></AppShell>; }
 function RNotifications() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="notifications"><NotificationsPage setCurrentPage={sp} /></AppShell>; }
+function RGiftCard() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="giftcard"><GiftCardPage setCurrentPage={sp} /></AppShell>; }
 
 function LessonRoute() {
   const { courseId } = useParams();
@@ -209,6 +212,7 @@ function AppRoutes() {
       <Route path="/backend-course" element={<RBackend />} />
         <Route path="/admin" element={<RAdmin />} />
         <Route path="/notifications" element={<RNotifications />} />
+        <Route path="/giftcard" element={<RGiftCard />} />
         <Route path="*" element={<Navigate to="/courses" />} />
     </Routes>
   );

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Home, Map, Trophy, Code2, X, LogOut, Wallet, User, Globe, Zap, Shield, Settings, Terminal, Info } from 'lucide-react';
+import { BookOpen, Home, Map, Trophy, Code2, X, LogOut, Wallet, User, Globe, Zap, Shield, Settings, Terminal, Info, Gift } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fmt } from '../lib/format';
@@ -65,6 +65,7 @@ export default function Sidebar({ currentPage, setCurrentPage, open, setOpen }: 
         { id: 'roadmap', label: t('nav.roadmap'), icon: <Map size={20} /> },
         { id: 'achievements', label: t('nav.achievements'), icon: <Trophy size={20} /> },
         { id: 'playground', label: t('nav.playground'), icon: <Terminal size={20} /> },
+        { id: 'giftcard', label: lang === 'ar' ? 'بطاقات الهدايا' : 'Gift Cards', icon: <Gift size={20} /> },
       ];
 
   return (
