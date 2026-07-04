@@ -1,4 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+// @ts-ignore - web-push has no types
 import webpush from 'web-push';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -13,14 +15,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     process.env.VAPID_PRIVATE_KEY!
   );
 
-  let subscriptions: webpush.PushSubscription[] = [];
+  const subscriptions: any[] = [];
 
   try {
-    const admin = await import('firebase-admin');
+    // @ts-ignore - dynamic import for firebase-admin
+    const { default: admin } = await import('firebase-admin');
 
     if (!admin.apps.length) {
       if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-        return res.status(200).json({ ok: false, reason: 'FIREBASE_SERVICE_ACCOUNT env not set — configure in Vercel dashboard' });
+        return res.status(200).json({ ok: false, reason: 'FIREBASE_SERVICE_ACCOUNT env not set' });
       }
       admin.initializeApp({
         credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
@@ -60,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   const results = await Promise.allSettled(
-    subscriptions.map(sub => webpush.sendNotification(sub, payload))
+    subscriptions.map((sub: any) => webpush.sendNotification(sub, payload))
   );
 
   res.json({
