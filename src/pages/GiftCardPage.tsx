@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { courses as staticCourses } from '../data/courses';
 import { getDynamicCourses, type BackendCourse } from '../lib/courseService';
-import { getCoursePrice } from '../lib/priceService';
+import { getAllPriceOverrides } from '../lib/priceService';
 
 interface GiftCardPageProps {
   setCurrentPage: (page: string) => void;
@@ -42,25 +42,24 @@ export default function GiftCardPage({ setCurrentPage }: GiftCardPageProps) {
   const balance = profile?.wallet?.balance || 0;
 
   useEffect(() => {
-    const allCourses: CourseItem[] = staticCourses
-      .filter(c => !c.free)
-      .map(c => ({ id: c.id, title: c.title, price: c.price, free: c.free, icon: c.icon, bgGradient: c.bgGradient }));
-    getDynamicCourses().then(dc => {
-      const dynamic = dc
+    (async () => {
+      const [dynamic, overrides] = await Promise.all([getDynamicCourses(), getAllPriceOverrides()]);
+      const allCourses: CourseItem[] = staticCourses
         .filter(c => !c.free)
-        .map(c => ({ id: c.id, title: c.title, price: c.price, free: c.free, icon: c.icon || '📚', bgGradient: c.bgGradient }));
-      const all = [...allCourses, ...dynamic];
+        .map(c => ({ id: c.id, title: c.title, price: overrides[c.id] ?? c.price, free: c.free, icon: c.icon, bgGradient: c.bgGradient }));
+      const dynamicMapped = dynamic
+        .filter(c => !c.free)
+        .map(c => ({ id: c.id, title: c.title, price: overrides[c.id] ?? c.price, free: c.free, icon: c.icon || '📚', bgGradient: c.bgGradient }));
+      const all = [...allCourses, ...dynamicMapped];
       all.sort((a, b) => a.price - b.price);
       setCourses(all);
-    });
+    })();
   }, []);
 
   useEffect(() => {
     if (!selectedCourse) { setCoursePrice(0); return; }
     const found = courses.find(c => c.id === selectedCourse);
-    if (found) {
-      getCoursePrice(found.id).then(override => setCoursePrice(override ?? found.price));
-    }
+    if (found) setCoursePrice(found.price);
   }, [selectedCourse, courses]);
 
   const handleBuyCard = async () => {
