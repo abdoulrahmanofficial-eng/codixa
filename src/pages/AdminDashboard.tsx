@@ -147,24 +147,25 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   };
 
   const pendingTx = useMemo(() => transactions.filter(tx => tx.status === 'pending'), [transactions]);
-  const totalBalance = useMemo(() => users.reduce((sum, u) => sum + (u.wallet?.balance || 0), 0), [users]);
+  const regularUsers = useMemo(() => users.filter(u => !u.isAdmin), [users]);
+  const totalBalance = useMemo(() => regularUsers.reduce((sum, u) => sum + (u.wallet?.balance || 0), 0), [regularUsers]);
   const totalRevenue = useMemo(() =>
     transactions.filter(tx => tx.type === 'deposit' && tx.status === 'completed')
       .reduce((sum, tx) => sum + tx.amount, 0), [transactions]);
-  const totalXP = useMemo(() => users.reduce((sum, u) => sum + (u.xp || 0), 0), [users]);
+  const totalXP = useMemo(() => regularUsers.reduce((sum, u) => sum + (u.xp || 0), 0), [regularUsers]);
   const totalPurchases = useMemo(() =>
     transactions.filter(tx => tx.type === 'purchase' && tx.status === 'completed').length, [transactions]);
   const adminCount = useMemo(() => users.filter(u => u.isAdmin).length, [users]);
 
   const filteredUsers = useMemo(() => {
-    if (!searchQuery) return users;
+    if (!searchQuery) return regularUsers;
     const q = searchQuery.toLowerCase();
-    return users.filter(u =>
+    return regularUsers.filter(u =>
       u.name.toLowerCase().includes(q) ||
       u.email.toLowerCase().includes(q) ||
       u.uid?.toLowerCase().includes(q)
     );
-  }, [users, searchQuery]);
+  }, [regularUsers, searchQuery]);
 
   const filteredTransactions = useMemo(() => {
     let list = transactions;
@@ -213,7 +214,7 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'overview', label: lang === 'ar' ? 'نظرة عامة' : 'Overview', icon: <Activity size={16} /> },
-    { id: 'users', label: lang === 'ar' ? 'المستخدمين' : 'Users', icon: <Users size={16} />, badge: users.length },
+    { id: 'users', label: lang === 'ar' ? 'المستخدمين' : 'Users', icon: <Users size={16} />, badge: regularUsers.length },
     { id: 'transactions', label: lang === 'ar' ? 'المعاملات' : 'Transactions', icon: <CreditCard size={16} />, badge: pendingTx.length },
     { id: 'courses', label: lang === 'ar' ? 'الكورسات' : 'Courses', icon: <BookOpen size={16} />, badge: staticCourses.length + dynamicCourses.length },
     { id: 'settings', label: lang === 'ar' ? 'الإعدادات' : 'Settings', icon: <UserCog size={16} /> },
@@ -268,7 +269,7 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3 mb-8">
-          <StatCard icon={<Users size={18} className="text-blue-400" />} value={users.length} label={lang === 'ar' ? 'المستخدمين' : 'Users'} color="bg-blue-500/20" sub={lang === 'ar' ? `${adminCount} مدير` : `${adminCount} admin`} />
+          <StatCard icon={<Users size={18} className="text-blue-400" />} value={regularUsers.length} label={lang === 'ar' ? 'المستخدمين' : 'Users'} color="bg-blue-500/20" sub={lang === 'ar' ? `${adminCount} مدير` : `${adminCount} admin`} />
           <StatCard icon={<DollarSign size={18} className="text-green-400" />} value={`${totalBalance} EGP`} label={lang === 'ar' ? 'إجمالي الرصيد' : 'Total Balance'} color="bg-green-500/20" />
           <StatCard icon={<TrendingUp size={18} className="text-yellow-400" />} value={`${totalRevenue} EGP`} label={lang === 'ar' ? 'الإيرادات' : 'Revenue'} color="bg-yellow-500/20" />
           <StatCard icon={<ShoppingCart size={18} className="text-red-400" />} value={pendingTx.length} label={lang === 'ar' ? 'معلقة' : 'Pending'} color="bg-red-500/20" sub={lang === 'ar' ? 'معاملة تحتاج مراجعة' : 'need review'} />
@@ -380,9 +381,9 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                   </div>
                   <div className="glass rounded-2xl p-5 border border-white/10">
                     <div className="text-slate-400 text-sm mb-1">{lang === 'ar' ? 'كورسات مبيعة' : 'Courses Sold'}</div>
-                    <div className="text-2xl font-black text-white">{users.reduce((sum, u) => sum + (u.purchasedCourses?.filter(c => c !== 'scratch').length || 0), 0)}</div>
+                    <div className="text-2xl font-black text-white">{regularUsers.reduce((sum, u) => sum + (u.purchasedCourses?.filter(c => c !== 'scratch').length || 0), 0)}</div>
                     <div className="mt-3 w-full bg-white/5 rounded-full h-2 overflow-hidden">
-                      <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full" style={{ width: `${Math.min(100, users.reduce((sum, u) => sum + (u.purchasedCourses?.length || 0), 0))}%` }} />
+                      <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full" style={{ width: `${Math.min(100, regularUsers.reduce((sum, u) => sum + (u.purchasedCourses?.length || 0), 0))}%` }} />
                     </div>
                   </div>
                   <div className="glass rounded-2xl p-5 border border-white/10">
@@ -475,7 +476,7 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                                 onChange={e => { setTransferFromId(u.uid); setTransferToId(e.target.value); }}
                                 className="w-32 bg-white/5 border border-white/10 rounded-lg py-1.5 px-3 text-white text-xs focus:outline-none focus:border-indigo-500">
                                 <option value="">{lang === 'ar' ? 'المستلم...' : 'Recipient...'}</option>
-                                {users.filter(other => other.uid !== u.uid).map(other => (
+                                {users.filter(other => other.uid !== u.uid && !other.isAdmin).map(other => (
                                   <option key={other.uid} value={other.uid} className="bg-slate-800">{other.name || other.email || other.uid}</option>
                                 ))}
                               </select>
@@ -795,11 +796,11 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                       <div className="text-slate-400 text-xs mb-1">{lang === 'ar' ? 'متوسط الرصيد لكل مستخدم' : 'Avg balance per user'}</div>
-                      <div className="text-white font-bold text-lg">{users.length > 0 ? (totalBalance / users.length).toFixed(0) : 0} EGP</div>
+                      <div className="text-white font-bold text-lg">{regularUsers.length > 0 ? (totalBalance / regularUsers.length).toFixed(0) : 0} EGP</div>
                     </div>
                     <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                       <div className="text-slate-400 text-xs mb-1">{lang === 'ar' ? 'متوسط XP لكل مستخدم' : 'Avg XP per user'}</div>
-                      <div className="text-white font-bold text-lg">{users.length > 0 ? (totalXP / users.length).toFixed(0) : 0}</div>
+                      <div className="text-white font-bold text-lg">{regularUsers.length > 0 ? (totalXP / regularUsers.length).toFixed(0) : 0}</div>
                     </div>
                     <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                       <div className="text-slate-400 text-xs mb-1">{lang === 'ar' ? 'نسبة المعاملات المكتملة' : 'Completion rate'}</div>
@@ -811,7 +812,7 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                     </div>
                     <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                       <div className="text-slate-400 text-xs mb-1">{lang === 'ar' ? 'متوسط الدخل لكل مستخدم' : 'Avg revenue per user'}</div>
-                      <div className="text-white font-bold text-lg">{users.length > 0 ? (totalRevenue / users.length).toFixed(0) : 0} EGP</div>
+                      <div className="text-white font-bold text-lg">{regularUsers.length > 0 ? (totalRevenue / regularUsers.length).toFixed(0) : 0} EGP</div>
                     </div>
                   </div>
                 </div>
