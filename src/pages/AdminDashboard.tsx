@@ -20,7 +20,7 @@ type AdminTab = 'overview' | 'users' | 'transactions' | 'courses' | 'settings';
 
 export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) {
   const { t, lang } = useI18n();
-  const { isAdmin, profile, getAllUsers, getAllTransactions, approveDeposit, rejectDeposit, setAdminRole, addUserBalance, deductUserBalance, transferBalance, createDiscountCode, getAllDiscountCodes, deleteDiscountCode } = useAuth();
+  const { isAdmin, profile, getAllUsers, getAllTransactions, approveDeposit, rejectDeposit, setAdminRole, addUserBalance, deductUserBalance, transferBalance, createDiscountCode, getAllDiscountCodes, deleteDiscountCode, deleteUser } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,6 +122,22 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
     setTransferAmount('');
     await loadData();
     setActionLoading(null);
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    const confirmMsg = lang === 'ar'
+      ? `هل أنت متأكد من حذف المستخدم "${userName}"؟ هذا الإجراء لا يمكن التراجع عنه.`
+      : `Are you sure you want to delete user "${userName}"? This action cannot be undone.`;
+    if (!window.confirm(confirmMsg)) return;
+    setActionLoading(`delete-${userId}`);
+    try {
+      await deleteUser(userId);
+      await loadData();
+    } catch (e: any) {
+      alert(e.message || 'Error deleting user');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const pendingTx = useMemo(() => transactions.filter(tx => tx.status === 'pending'), [transactions]);
@@ -465,6 +481,14 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-all text-xs font-bold disabled:opacity-50">
                                 {actionLoading === `transfer-${u.uid}` ? <Loader2 size={12} className="animate-spin" /> : <span>⇄</span>}
                                 {lang === 'ar' ? 'تحويل' : 'Transfer'}
+                              </button>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-white/10">
+                              <button onClick={e => { e.stopPropagation(); handleDeleteUser(u.uid, u.name || u.email); }}
+                                disabled={actionLoading === `delete-${u.uid}` || u.uid === profile?.uid}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all text-xs font-bold disabled:opacity-50">
+                                {actionLoading === `delete-${u.uid}` ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />}
+                                {lang === 'ar' ? 'حذف المستخدم' : 'Delete User'}
                               </button>
                             </div>
                             {getUserTransactions(u.uid).length > 0 && (

@@ -77,6 +77,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   verifyEmail: (oobCode: string) => Promise<void>;
+  deleteUser: (userId: string) => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -110,6 +111,7 @@ const AuthContext = createContext<AuthContextType>({
   resetPassword: async () => {},
   sendVerificationEmail: async () => {},
   verifyEmail: async () => {},
+  deleteUser: async () => {},
   isAdmin: false,
 });
 
@@ -447,6 +449,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ]);
   };
 
+  const deleteUserFn = async (userId: string) => {
+    if (!isAdmin) throw new Error('Admin only');
+    // Delete RTDB user data
+    await set(ref(rtdb, `users/${userId}`), null);
+  };
+
   const createDiscountCode = async (code: string, percentage: number) => {
     if (!isAdmin) return;
     await set(ref(rtdb, `discount-codes/${code.toUpperCase()}`), {
@@ -624,6 +632,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       addUserBalance,
       deductUserBalance,
       transferBalance,
+      deleteUser: deleteUserFn,
       createDiscountCode,
       getAllDiscountCodes,
       deleteDiscountCode,
