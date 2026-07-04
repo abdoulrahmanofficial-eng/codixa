@@ -66,9 +66,7 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
         if (auth.currentUser && !auth.currentUser.emailVerified) {
           await auth.currentUser.reload();
           if (!auth.currentUser.emailVerified) {
-            await sendVerificationEmail();
             setShowVerify(true);
-            setVerifySent(true);
             return;
           }
         }
