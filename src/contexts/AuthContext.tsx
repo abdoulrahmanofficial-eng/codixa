@@ -92,9 +92,9 @@ interface AuthContextType {
   markNotificationRead: (notificationId: string) => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
   createGiftCard: (amount: number, message?: string) => Promise<string>;
-  redeemGiftCard: (code: string) => Promise<void>;
+  redeemGiftCard: (code: string) => Promise<{ senderName: string; message: string; type: 'card' | 'course'; courseId?: string }>;
   createGiftCourse: (courseId: string, price: number, message?: string) => Promise<string>;
-  redeemGiftCourse: (code: string) => Promise<void>;
+  redeemGiftCourse: (code: string) => Promise<{ senderName: string; message: string; type: 'card' | 'course'; courseId?: string }>;
   isAdmin: boolean;
 }
 
@@ -135,9 +135,9 @@ const AuthContext = createContext<AuthContextType>({
   markNotificationRead: async () => {},
   deleteNotification: async () => {},
   createGiftCard: async () => '',
-  redeemGiftCard: async () => {},
+  redeemGiftCard: async () => ({ senderName: '', message: '', type: 'card' as const }),
   createGiftCourse: async () => '',
-  redeemGiftCourse: async () => {},
+  redeemGiftCourse: async () => ({ senderName: '', message: '', type: 'course' as const }),
   isAdmin: false,
 });
 
@@ -568,6 +568,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await update(ref(rtdb, `gift-cards/${code}`), {
       status: 'redeemed', redeemedAt: Date.now(), redeemedBy: user.uid,
     });
+    return { senderName: card.senderName, message: card.message || '', type: 'card' as const };
   };
 
   const createGiftCourseFn = async (courseId: string, price: number, message?: string): Promise<string> => {
@@ -617,6 +618,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await update(ref(rtdb, `gift-courses/${code}`), {
       status: 'redeemed', redeemedAt: Date.now(), redeemedBy: user.uid,
     });
+    return { senderName: gc.senderName, message: gc.message || '', type: 'course' as const, courseId: gc.courseId };
   };
 
   const createDiscountCode = async (code: string, percentage: number) => {

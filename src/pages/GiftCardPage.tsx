@@ -101,13 +101,19 @@ export default function GiftCardPage({ setCurrentPage }: GiftCardPageProps) {
     setRedeeming(true);
     setRedeemMsg(null);
     try {
-      await redeemGiftCard(code);
-      setRedeemMsg({ ok: true, text: lang === 'ar' ? 'تم استلام الرصيد بنجاح! 🎉' : 'Balance added successfully! 🎉' });
+      const card = await redeemGiftCard(code);
+      const msgText = card.message
+        ? (lang === 'ar' ? `من ${card.senderName}: "${card.message}"` : `From ${card.senderName}: "${card.message}"`)
+        : (lang === 'ar' ? `من ${card.senderName}` : `From ${card.senderName}`);
+      setRedeemMsg({ ok: true, text: (lang === 'ar' ? `تم استلام الرصيد بنجاح! 🎉\n${msgText}` : `Balance added! 🎉\n${msgText}`) });
       setRedeemCode('');
     } catch {
       try {
-        await redeemGiftCourse(code);
-        setRedeemMsg({ ok: true, text: lang === 'ar' ? 'تم إضافة الكورس بنجاح! 🎉' : 'Course added successfully! 🎉' });
+        const gc = await redeemGiftCourse(code);
+        const msgText = gc.message
+          ? (lang === 'ar' ? `من ${gc.senderName}: "${gc.message}"` : `From ${gc.senderName}: "${gc.message}"`)
+          : (lang === 'ar' ? `من ${gc.senderName}` : `From ${gc.senderName}`);
+        setRedeemMsg({ ok: true, text: (lang === 'ar' ? `تم إضافة الكورس بنجاح! 🎉\n${msgText}` : `Course added! 🎉\n${msgText}`) });
         setRedeemCode('');
       } catch (e: any) {
         setRedeemMsg({ ok: false, text: e.message });
