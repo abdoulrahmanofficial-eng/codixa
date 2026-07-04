@@ -136,6 +136,8 @@ function AppRoutes() {
       <Routes>
         <Route path="/auth" element={<RAuth />} />
         <Route path="/about" element={<RAbout />} />
+        <Route path="/roadmap" element={<RRoadmap />} />
+        <Route path="/courses" element={<RCourses />} />
         <Route path="/" element={<RHome />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
