@@ -3,7 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { Mail, Lock, User, ArrowLeft, Eye, EyeOff, Code2, Loader2, CheckCircle, ShieldCheck } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { auth, rtdb } from '../lib/firebase';
+import { ref, get } from 'firebase/database';
 
 interface AuthPageProps {
   setCurrentPage: (page: string) => void;
@@ -30,6 +31,7 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
   const [code, setCode] = useState('');
   const [codeLoading, setCodeLoading] = useState(false);
+  const [fallbackCode, setFallbackCode] = useState('');
 
   // Detect verifyEmail mode from URL
   useEffect(() => {
@@ -47,6 +49,15 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
       })();
     }
   }, []);
+
+  // Fetch fallback code from RTDB
+  useEffect(() => {
+    if (showVerify && user) {
+      get(ref(rtdb, `verification-codes/${user.uid}`)).then(snap => {
+        if (snap.exists()) setFallbackCode(snap.val().code || '');
+      }).catch(() => {});
+    }
+  }, [showVerify, user]);
 
   // Redirect to courses if already logged in and email verified
   useEffect(() => {
@@ -126,6 +137,27 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
     }
   };
 
+  const handleVerifyCode = async () => {
+    setError('');
+    if (!code || code.length !== 6) {
+      setError(lang === 'ar' ? 'أدخل الكود المكون من 6 أرقام' : 'Enter the 6-digit code');
+      return;
+    }
+    setCodeLoading(true);
+    try {
+      const ok = await verifyWithCode(user?.uid || '', code);
+      if (ok) {
+        setVerifiedSuccess(true);
+      } else {
+        setError(lang === 'ar' ? 'الكود غير صحيح أو منتهي الصلاحية' : 'Invalid or expired code');
+      }
+    } catch {
+      setError(lang === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'An error occurred');
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+
   const handleCheckVerified = async () => {
     setError('');
     if (user) {
@@ -179,17 +211,8 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
               <Mail size={32} className="text-white" />
             </div>
             <h2 className="text-xl font-bold text-white mb-2">{t('auth.verifyEmail')}</h2>
-            <p className="text-slate-400 text-sm mb-2">{t('auth.verifyEmailDesc')}</p>
-            <p className="text-slate-400 text-xs mb-6">{lang === 'ar' ? 'تم إرسال إيميل التأكيد إلى' : 'Email sent to'} <span className="text-indigo-300">{email}</span></p>
-
-            <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl mb-4">
-              <p className="text-green-400 text-sm font-semibold">
-                {lang === 'ar' ? '✅ تم إنشاء حسابك بنجاح!' : '✅ Account created successfully!'}
-              </p>
-              <p className="text-green-400/70 text-xs mt-1">
-                {lang === 'ar' ? 'افتح إيميلك واضغط على رابط التأكيد من Firebase' : 'Check your email and click the Firebase confirmation link'}
-              </p>
-            </div>
+            <p className="text-slate-400 text-sm mb-4">{t('auth.verifyEmailDesc')}</p>
+            <p className="text-slate-400 text-xs mb-4">{lang === 'ar' ? 'تم إنشاء حسابك بـ' : 'Account created with'} <span className="text-indigo-300">{email}</span></p>
 
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm text-center mb-4">
@@ -197,18 +220,32 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
               </div>
             )}
 
-            <button onClick={handleResendVerification} disabled={verifyLoading}
-              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50 mb-3">
-              {verifyLoading ? <Loader2 size={18} className="animate-spin mx-auto" /> : (lang === 'ar' ? 'إعادة إرسال الإيميل' : 'Resend email')}
-            </button>
+            <div className="mb-3">
+              <label className="text-slate-400 text-xs">{lang === 'ar' ? 'أدخل كود التفعيل المرسل إلى بريدك' : 'Enter the 6-digit code'}</label>
+            </div>
+            <div className="flex gap-2 mb-3">
+              <input type="text" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000"
+                className="flex-1 text-center text-2xl tracking-[12px] font-bold bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 transition-all" />
+              <button onClick={handleVerifyCode} disabled={codeLoading || code.length !== 6}
+                className="px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50">
+                {codeLoading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+              </button>
+            </div>
 
-            <button onClick={handleCheckVerified}
-              className="w-full py-3 text-indigo-400 hover:text-indigo-300 font-semibold text-sm transition-colors">
-              {lang === 'ar' ? 'تم التأكيد، ادخل الآن' : "I've verified, continue"}
+            {fallbackCode && (
+              <div className="mb-4 p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-xl">
+                <p className="text-xs text-indigo-300 mb-2">{lang === 'ar' ? 'كود التفعيل الخاص بك (إذا لم يصل الإيميل):' : 'Your code (if email not received):'}</p>
+                <p className="text-3xl font-bold text-indigo-200 tracking-[14px] text-center">{fallbackCode}</p>
+              </div>
+            )}
+
+            <button onClick={handleResendVerification} disabled={verifyLoading}
+              className="w-full py-3 text-indigo-400 hover:text-indigo-300 font-semibold text-sm transition-colors disabled:opacity-50">
+              {verifyLoading ? <Loader2 size={18} className="animate-spin mx-auto" /> : t('auth.resendVerification')}
             </button>
 
             <button onClick={() => { setShowVerify(false); setCurrentPage('home'); }}
-              className="mt-3 text-slate-500 hover:text-slate-400 text-sm transition-colors">
+              className="mt-2 text-slate-500 hover:text-slate-400 text-sm transition-colors">
               {lang === 'ar' ? 'تسجيل الخروج' : 'Sign out'}
             </button>
           </div>
