@@ -297,7 +297,7 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
             return (
               <div key="backend-engineering"
                 className="glass rounded-2xl overflow-hidden card-hover border border-white/10 cursor-pointer group"
-                onClick={() => beCanAccess ? handleCourseClick('backend-engineering') : setConfirmCourse('backend-engineering')}
+                onClick={() => beCanAccess ? handleCourseClick('backend-engineering') : user ? setConfirmCourse('backend-engineering') : setCurrentPage('auth')}
               >
                 <div className="bg-gradient-to-br from-slate-700 to-slate-900 p-6 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20" />
@@ -363,7 +363,7 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
                     </button>
                   ) : (
                     <button
-                      onClick={(e) => { e.stopPropagation(); setConfirmCourse('backend-engineering'); }}
+                      onClick={(e) => { e.stopPropagation(); user ? setConfirmCourse('backend-engineering') : setCurrentPage('auth'); }}
                       className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-all group-hover:shadow-lg group-hover:shadow-yellow-500/30">
                       <ShoppingCart size={14} />
                       {t('courses.buyNow')} - {price} EGP
@@ -476,14 +476,15 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
 
                   {/* CTA */}
                   {course.free || accessible ? (
-                    <button className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-all group-hover:shadow-lg group-hover:shadow-indigo-500/30">
+                    <button onClick={(e) => { e.stopPropagation(); user ? handleCourseClick(course.id) : setCurrentPage('auth'); }}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-all group-hover:shadow-lg group-hover:shadow-indigo-500/30">
                       <Play size={14} />
                       {t('courses.startNow')}
                       <ChevronLeft size={14} />
                     </button>
                   ) : (
                     <button
-                      onClick={(e) => { e.stopPropagation(); setConfirmCourse(course.id); }}
+                      onClick={(e) => { e.stopPropagation(); user ? setConfirmCourse(course.id) : setCurrentPage('auth'); }}
                       className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-all group-hover:shadow-lg group-hover:shadow-yellow-500/30"
                     >
                       <ShoppingCart size={14} />
