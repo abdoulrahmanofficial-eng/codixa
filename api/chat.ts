@@ -59,7 +59,8 @@ async function streamOpenAI(message: string, history: any[], lessonContent: stri
       model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
       messages,
       stream: true,
-      temperature: 0.7,
+      temperature: 0.5,
+      reasoning_effort: 'medium',
       max_tokens: 4096,
     }),
   });
@@ -89,13 +90,15 @@ async function streamOpenAI(message: string, history: any[], lessonContent: stri
             const trimmed = line.trim();
             if (!trimmed || !trimmed.startsWith('data:')) continue;
             const jsonStr = trimmed.slice(5).trim();
-            if (!jsonStr || jsonStr === '[DONE]') continue;
+            if (!jsonStr) continue;
+            if (jsonStr === '[DONE]') break;
             try {
               const parsed = JSON.parse(jsonStr);
               const text = parsed.choices?.[0]?.delta?.content;
               if (text) controller.enqueue(new TextEncoder().encode(text));
             } catch {}
           }
+          if (buffer.trim() === 'data: [DONE]') break;
         }
       } catch (e) { controller.error(e); }
       finally { controller.close(); reader.releaseLock(); }
@@ -131,7 +134,8 @@ async function streamOpenCodeZen(message: string, history: any[], lessonContent:
       model,
       messages,
       stream: true,
-      temperature: 0.7,
+      temperature: 0.5,
+      reasoning_effort: 'medium',
       max_tokens: 4096,
     }),
   });
@@ -161,13 +165,15 @@ async function streamOpenCodeZen(message: string, history: any[], lessonContent:
             const trimmed = line.trim();
             if (!trimmed || !trimmed.startsWith('data:')) continue;
             const jsonStr = trimmed.slice(5).trim();
-            if (!jsonStr || jsonStr === '[DONE]') continue;
+            if (!jsonStr) continue;
+            if (jsonStr === '[DONE]') break;
             try {
               const parsed = JSON.parse(jsonStr);
               const text = parsed.choices?.[0]?.delta?.content;
               if (text) controller.enqueue(new TextEncoder().encode(text));
             } catch {}
           }
+          if (buffer.trim() === 'data: [DONE]') break;
         }
       } catch (e) { controller.error(e); }
       finally { controller.close(); reader.releaseLock(); }
@@ -206,10 +212,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(decoder.decode(value, { stream: true }));
+    const timeout = setTimeout(() => {
+      reader.cancel();
+      res.end();
+    }, 60000);
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(decoder.decode(value, { stream: true }));
+      }
+    } finally {
+      clearTimeout(timeout);
     }
 
     res.end();
