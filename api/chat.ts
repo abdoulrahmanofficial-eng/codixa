@@ -32,6 +32,148 @@ function buildSystemPrompt(lessonContent: string, lessonTitle?: string, courseTi
   return parts.join('\n');
 }
 
+async function streamOpenAI(message: string, history: any[], lessonContent: string, lessonTitle?: string, courseTitle?: string): Promise<ReadableStream> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
+
+  const messages: any[] = [
+    { role: 'system', content: buildSystemPrompt(lessonContent, lessonTitle, courseTitle) },
+  ];
+  if (history && Array.isArray(history)) {
+    for (const msg of history) {
+      if (msg.role && msg.content) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+  }
+  messages.push({ role: 'user', content: message });
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      messages,
+      stream: true,
+      temperature: 0.7,
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`OpenAI API error: ${err}`);
+  }
+
+  const body = response.body;
+  if (!body) throw new Error('No response body');
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data:')) continue;
+            const jsonStr = trimmed.slice(5).trim();
+            if (!jsonStr || jsonStr === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const text = parsed.choices?.[0]?.delta?.content;
+              if (text) controller.enqueue(new TextEncoder().encode(text));
+            } catch {}
+          }
+        }
+      } catch (e) { controller.error(e); }
+      finally { controller.close(); reader.releaseLock(); }
+    },
+  });
+}
+
+async function streamOpenCodeZen(message: string, history: any[], lessonContent: string, lessonTitle?: string, courseTitle?: string): Promise<ReadableStream> {
+  const apiKey = process.env.OPENCODE_ZEN_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OpenCode Zen API key not configured');
+
+  const model = process.env.ZEN_MODEL || 'deepseek-v4-flash-free';
+
+  const messages: any[] = [
+    { role: 'system', content: buildSystemPrompt(lessonContent, lessonTitle, courseTitle) },
+  ];
+  if (history && Array.isArray(history)) {
+    for (const msg of history) {
+      if (msg.role && msg.content) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+  }
+  messages.push({ role: 'user', content: message });
+
+  const response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      stream: true,
+      temperature: 0.7,
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`OpenCode Zen API error: ${err}`);
+  }
+
+  const body = response.body;
+  if (!body) throw new Error('No response body');
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data:')) continue;
+            const jsonStr = trimmed.slice(5).trim();
+            if (!jsonStr || jsonStr === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const text = parsed.choices?.[0]?.delta?.content;
+              if (text) controller.enqueue(new TextEncoder().encode(text));
+            } catch {}
+          }
+        }
+      } catch (e) { controller.error(e); }
+      finally { controller.close(); reader.releaseLock(); }
+    },
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -43,87 +185,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'message and lessonContent are required' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
-  }
-
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+    const provider = process.env.AI_PROVIDER || 'opencode';
+    let stream: ReadableStream;
 
-    const contents: any[] = [];
-    if (history && Array.isArray(history)) {
-      for (const msg of history) {
-        if (msg.role && msg.content) {
-          contents.push({
-            role: msg.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: msg.content }],
-          });
-        }
-      }
-    }
-    contents.push({
-      role: 'user',
-      parts: [{ text: message }],
-    });
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        systemInstruction: {
-          parts: [{ text: buildSystemPrompt(lessonContent, lessonTitle, courseTitle) }],
-        },
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 4096,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Gemini API error:', response.status, errText);
-      return res.status(502).json({ error: `Gemini API error: ${errText}` });
-    }
-
-    const body = response.body;
-    if (!body) {
-      return res.status(502).json({ error: 'No response body from Gemini' });
+    if (provider === 'openai') {
+      stream = await streamOpenAI(message, history, lessonContent, lessonTitle, courseTitle);
+    } else if (provider === 'gemini') {
+      const { streamGemini } = await import('./_gemini');
+      stream = await streamGemini(message, history, lessonContent, lessonTitle, courseTitle);
+    } else {
+      stream = await streamOpenCodeZen(message, history, lessonContent, lessonTitle, courseTitle);
     }
 
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('X-Content-Type-Options', 'nosniff');
 
-    const reader = body.getReader();
+    const reader = stream.getReader();
     const decoder = new TextDecoder();
-    let buffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith('data:')) continue;
-        const jsonStr = trimmed.slice(5).trim();
-        if (!jsonStr || jsonStr === '[DONE]') continue;
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            res.write(text);
-          }
-        } catch {
-          // skip unparseable chunks
-        }
-      }
+      res.write(decoder.decode(value, { stream: true }));
     }
 
     res.end();
