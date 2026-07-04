@@ -601,10 +601,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const gc = snap.val();
     if (gc.status !== 'active') throw new Error('Gift course already used');
     if (gc.senderUid === user.uid) throw new Error('Cannot redeem your own gift course');
-    // Add course to recipient
+    // Check if recipient already owns the course
     const recipSnap = await get(ref(rtdb, `users/${user.uid}`));
     if (!recipSnap.exists()) throw new Error('User not found');
     const recipData = recipSnap.val();
+    if (recipData.purchasedCourses && (recipData.purchasedCourses[gc.courseId] || (Array.isArray(recipData.purchasedCourses) && recipData.purchasedCourses.includes(gc.courseId)))) {
+      throw new Error('You already own this course');
+    }
     const purchasedObj = recipData.purchasedCourses ? { ...recipData.purchasedCourses } : {};
     purchasedObj[gc.courseId] = true;
     await update(ref(rtdb, `users/${user.uid}`), {
