@@ -79,7 +79,6 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
           return;
         }
         await register(email, password, name);
-        await sendVerificationEmail();
         setShowVerify(true);
         setVerifySent(true);
       }

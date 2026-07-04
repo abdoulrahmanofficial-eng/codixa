@@ -294,25 +294,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     setProfile(newProfile);
 
-    // Send custom verification email via our API
+    // These are non-blocking (errors caught)
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    try {
-      await set(ref(rtdb, `verification-codes/${cred.user.uid}`), {
-        code,
-        email,
-        expiresAt: Date.now() + 600000, // 10 min
-      });
-    } catch { /* code storage is a bonus */ }
-    try {
-      await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: email, code, name }),
-      });
-    } catch { /* email is bonus, not blocking */ }
-
-    // Also send Firebase default (for alternative verification)
-    try { await sendEmailVerification(cred.user); } catch { /* silent */ }
+    try { await set(ref(rtdb, `verification-codes/${cred.user.uid}`), { code, email, expiresAt: Date.now() + 600000 }); } catch {}
+    try { await fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: email, code, name }) }); } catch {}
+    try { await sendEmailVerification(cred.user); } catch {}
   };
 
   const logout = async () => {
