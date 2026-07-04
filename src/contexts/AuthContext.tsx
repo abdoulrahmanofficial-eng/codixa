@@ -463,8 +463,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       update(ref(rtdb, `users/${fromUserId}`), { ['wallet/balance']: fromBalance - amount }),
       update(ref(rtdb, `users/${toUserId}`), { ['wallet/balance']: (toData.wallet?.balance || 0) + amount }),
     ]);
-    // Create notification for recipient
-    const notifRef = push(ref(rtdb, 'notifications'));
+    // Create notification for recipient only
+    const notifRef = push(ref(rtdb, `inbox/${toUserId}`));
     await set(notifRef, {
       title: '💰 تحويل وارِد / Transfer Received',
       body: `تم استلام ${amount} EGP من ${fromData.name || fromUserId} — Received ${amount} EGP from ${fromData.name || fromUserId}`,
@@ -484,12 +484,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const getNotificationsFn = async (): Promise<AppNotification[]> => {
-    const snap = await get(ref(rtdb, 'notifications'));
-    if (!snap.exists()) return [];
-    const data = snap.val();
-    return Object.entries(data)
-      .map(([id, val]: any) => ({ id, ...val }))
-      .sort((a, b) => b.createdAt - a.createdAt);
+    const [globalSnap, inboxSnap] = await Promise.all([
+      get(ref(rtdb, 'notifications')),
+      user ? get(ref(rtdb, `inbox/${user.uid}`)) : Promise.resolve(null),
+    ]);
+    const all: AppNotification[] = [];
+    if (globalSnap.exists()) {
+      Object.entries(globalSnap.val()).forEach(([id, val]: any) => all.push({ id, ...val }));
+    }
+    if (inboxSnap?.exists()) {
+      Object.entries(inboxSnap.val()).forEach(([id, val]: any) => all.push({ id, ...val }));
+    }
+    return all.sort((a, b) => b.createdAt - a.createdAt);
   };
 
   const markNotificationReadFn = async (notificationId: string) => {
