@@ -297,7 +297,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // These are non-blocking (errors caught)
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     try { await set(ref(rtdb, `verification-codes/${cred.user.uid}`), { code, email, expiresAt: Date.now() + 600000 }); } catch {}
-    try { await fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: email, code, name }) }); } catch {}
     try { await sendEmailVerification(cred.user); } catch {}
   };
 
@@ -312,12 +311,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sendVerificationEmailFn = async () => {
     if (!auth.currentUser) return;
-    const uid = auth.currentUser.uid;
-    const email = auth.currentUser.email || '';
     try { await sendEmailVerification(auth.currentUser); } catch {}
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    try { await set(ref(rtdb, `verification-codes/${uid}`), { code, email, expiresAt: Date.now() + 600000 }); } catch {}
-    try { await fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: email, code }) }); } catch {}
+    try { await set(ref(rtdb, `verification-codes/${auth.currentUser.uid}`), { code, email: auth.currentUser.email, expiresAt: Date.now() + 600000 }); } catch {}
   };
 
   const verifyEmailFn = async (oobCode: string) => {

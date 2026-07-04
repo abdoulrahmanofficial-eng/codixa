@@ -213,8 +213,8 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
             </div>
             <h2 className="text-xl font-bold text-white mb-2">{t('auth.verifyEmail')}</h2>
             <p className="text-slate-400 text-sm mb-4">{t('auth.verifyEmailDesc')}</p>
-            <p className="text-slate-400 text-sm mb-6">{t('auth.checkInbox')} (<span className="text-indigo-300">{email}</span>)</p>
-            <p className="text-xs text-slate-500 -mt-4 mb-6">{lang === 'ar' ? 'أرسل من' : 'Sent from'} <span className="text-slate-400">codixa.info.io@gmail.com</span> — {lang === 'ar' ? 'تحقق من الرسائل المزعجة (spam)' : 'check spam folder'}</p>
+            <p className="text-slate-400 text-sm mb-2">{t('auth.checkInbox')} (<span className="text-indigo-300">{email}</span>)</p>
+            <p className="text-xs text-slate-500 mb-6">{lang === 'ar' ? 'سيصلك إيميل تأكيد من Firebase — تحقق من spam لو موصلش' : 'Check your inbox — also check spam if not found'}</p>
 
             {verifySent && (
               <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-sm text-center mb-4">
