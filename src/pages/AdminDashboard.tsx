@@ -19,7 +19,7 @@ interface AdminDashboardProps {
   setCurrentPage: (page: string) => void;
 }
 
-type AdminTab = 'overview' | 'users' | 'transactions' | 'courses' | 'settings' | 'notifications';
+type AdminTab = 'overview' | 'users' | 'admins' | 'transactions' | 'courses' | 'settings' | 'notifications';
 
 export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) {
   const { t, lang } = useI18n();
@@ -53,6 +53,7 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   const [notifSending, setNotifSending] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceSaving, setMaintenanceSaving] = useState(false);
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -221,6 +222,7 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'overview', label: lang === 'ar' ? 'نظرة عامة' : 'Overview', icon: <Activity size={16} /> },
     { id: 'users', label: lang === 'ar' ? 'المستخدمين' : 'Users', icon: <Users size={16} />, badge: regularUsers.length },
+    { id: 'admins', label: lang === 'ar' ? 'المدراء' : 'Admins', icon: <Shield size={16} />, badge: adminCount },
     { id: 'transactions', label: lang === 'ar' ? 'المعاملات' : 'Transactions', icon: <CreditCard size={16} />, badge: pendingTx.length },
     { id: 'courses', label: lang === 'ar' ? 'الكورسات' : 'Courses', icon: <BookOpen size={16} />, badge: staticCourses.length + dynamicCourses.length },
     { id: 'settings', label: lang === 'ar' ? 'الإعدادات' : 'Settings', icon: <UserCog size={16} /> },
@@ -541,6 +543,124 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
               </div>
             )}
 
+            {/* ── Admins Tab ── */}
+            {tab === 'admins' && (
+              <div className="space-y-4">
+                {/* Current Admins */}
+                <div className="glass rounded-2xl border border-white/10 overflow-hidden">
+                  <div className="p-4 border-b border-white/10">
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                      <Shield size={18} className="text-yellow-400" />
+                      {lang === 'ar' ? 'المدراء الحاليون' : 'Current Admins'}
+                      <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs font-bold">{adminCount}</span>
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-white/5">
+                    {users.filter(u => u.isAdmin).map(u => (
+                      <div key={u.uid} className="flex items-center gap-4 p-4 hover:bg-white/5 transition-all">
+                        <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center text-lg font-bold text-yellow-400">
+                          {u.name?.[0] || '?'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-semibold text-sm truncate">{u.name}</span>
+                            <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-[10px] font-bold">{lang === 'ar' ? 'مدير' : 'Admin'}</span>
+                            {u.uid === profile?.uid && (
+                              <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[10px] font-bold">{lang === 'ar' ? 'أنت' : 'You'}</span>
+                            )}
+                          </div>
+                          <div className="text-slate-400 text-xs truncate">{u.email}</div>
+                        </div>
+                        <div className="hidden sm:flex items-center gap-4 text-xs text-slate-400">
+                          <span>{u.wallet?.balance || 0} EGP</span>
+                          <span>{(u.purchasedCourses || []).length} {lang === 'ar' ? 'كورس' : 'courses'}</span>
+                          <span>{u.xp || 0} XP</span>
+                        </div>
+                        {u.uid !== profile?.uid && (
+                          <button onClick={async () => {
+                            const confirmMsg = lang === 'ar'
+                              ? `هل أنت متأكد من إزالة صلاحية المدير عن "${u.name}"؟`
+                              : `Are you sure you want to remove admin rights from "${u.name}"?`;
+                            if (!window.confirm(confirmMsg)) return;
+                            setActionLoading(`demote-${u.uid}`);
+                            await setAdminRole(u.uid, false);
+                            await loadData();
+                            setActionLoading(null);
+                          }} disabled={actionLoading === `demote-${u.uid}`}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all text-xs font-bold disabled:opacity-50">
+                            {actionLoading === `demote-${u.uid}` ? <Loader2 size={12} className="animate-spin" /> : <ShieldOff size={12} />}
+                            {lang === 'ar' ? 'إزالة صلاحية' : 'Demote'}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {adminCount === 0 && (
+                      <div className="text-center py-10 text-slate-400">{lang === 'ar' ? 'لا يوجد مدراء' : 'No admins'}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Promote User to Admin */}
+                <div className="glass rounded-2xl p-4 border border-white/10">
+                  <h3 className="text-white font-bold text-lg flex items-center gap-2 mb-4">
+                    <UserCog size={18} className="text-green-400" />
+                    {lang === 'ar' ? 'ترقية مستخدم إلى مدير' : 'Promote User to Admin'}
+                  </h3>
+                  <div className="relative mb-4">
+                    <Search size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type="text" value={adminSearchQuery} onChange={e => setAdminSearchQuery(e.target.value)}
+                      placeholder={lang === 'ar' ? 'ابحث عن مستخدم بالاسم أو البريد...' : 'Search user by name or email...'}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pr-10 pl-4 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 transition-colors" />
+                  </div>
+                  <div className="divide-y divide-white/5 max-h-64 overflow-y-auto">
+                    {users
+                      .filter(u => !u.isAdmin)
+                      .filter(u => u.uid !== profile?.uid)
+                      .filter(u => {
+                        if (!adminSearchQuery) return false;
+                        const q = adminSearchQuery.toLowerCase();
+                        return u.name.toLowerCase().includes(q) ||
+                               u.email.toLowerCase().includes(q) ||
+                               u.uid?.toLowerCase().includes(q);
+                      })
+                      .map(u => (
+                        <div key={u.uid} className="flex items-center gap-3 py-3 hover:bg-white/5 transition-all px-1 rounded-lg">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-500/20 flex items-center justify-center text-sm font-bold text-indigo-400">
+                            {u.name?.[0] || '?'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-white font-semibold text-sm truncate">{u.name}</div>
+                            <div className="text-slate-400 text-xs truncate">{u.email}</div>
+                          </div>
+                          <button onClick={async () => {
+                            setActionLoading(`promote-${u.uid}`);
+                            await setAdminRole(u.uid, true);
+                            setAdminSearchQuery('');
+                            await loadData();
+                            setActionLoading(null);
+                          }} disabled={actionLoading === `promote-${u.uid}`}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-all text-xs font-bold disabled:opacity-50">
+                            {actionLoading === `promote-${u.uid}` ? <Loader2 size={12} className="animate-spin" /> : <Shield size={12} />}
+                            {lang === 'ar' ? 'ترقية' : 'Promote'}
+                          </button>
+                        </div>
+                      ))}
+                    {adminSearchQuery && users.filter(u => !u.isAdmin).filter(u => {
+                      const q = adminSearchQuery.toLowerCase();
+                      return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+                    }).length === 0 && (
+                      <div className="text-center py-6 text-slate-400">{lang === 'ar' ? 'لا توجد نتائج' : 'No results found'}</div>
+                    )}
+                    {!adminSearchQuery && (
+                      <div className="text-center py-6 text-slate-400 text-sm">
+                        {lang === 'ar' ? 'ابحث عن مستخدم لترقيته إلى مدير' : 'Search for a user to promote to admin'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ── Transactions Tab ── */}
             {tab === 'transactions' && (
               <div className="space-y-4">
@@ -788,13 +908,13 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                   </h3>
                   <p className="text-slate-400 text-sm mb-4">
                     {lang === 'ar'
-                      ? 'يمكنك إضافة أو إزالة صلاحيات المدير من أي مستخدم عبر زر التبديل في تبويب المستخدمين.'
-                      : 'Toggle admin permissions for any user from the Users tab.'}
+                      ? 'يمكنك إضافة أو إزالة صلاحيات المدير من تبويب المدراء.'
+                      : 'Manage admin permissions from the Admins tab.'}
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <button onClick={() => setTab('users')} className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all">
-                      <Users size={16} />
-                      {lang === 'ar' ? 'إدارة المستخدمين' : 'Manage Users'}
+                    <button onClick={() => setTab('admins')} className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all">
+                      <Shield size={16} />
+                      {lang === 'ar' ? 'إدارة المدراء' : 'Manage Admins'}
                     </button>
                   </div>
                 </div>
