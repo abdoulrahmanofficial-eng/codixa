@@ -87,6 +87,7 @@ interface AuthContextType {
   verifyEmail: (oobCode: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   createNotification: (title: string, body: string) => Promise<void>;
+  sendUserNotification: (userId: string, title: string, body: string) => Promise<void>;
   getNotifications: () => Promise<AppNotification[]>;
   markNotificationRead: (notificationId: string) => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
@@ -125,6 +126,7 @@ const AuthContext = createContext<AuthContextType>({
   verifyEmail: async () => {},
   deleteUser: async () => {},
   createNotification: async () => {},
+  sendUserNotification: async () => {},
   getNotifications: async () => [],
   markNotificationRead: async () => {},
   deleteNotification: async () => {},
@@ -484,6 +486,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await set(notifRef, { title, body, createdAt: Date.now() });
   };
 
+  const sendUserNotificationFn = async (userId: string, title: string, body: string) => {
+    if (!isAdmin) throw new Error('Admin only');
+    const notifRef = push(ref(rtdb, 'notifications'));
+    await set(notifRef, { title, body, createdAt: Date.now(), targetUserId: userId });
+  };
+
   const getNotificationsFn = async (): Promise<AppNotification[]> => {
     const snap = await get(ref(rtdb, 'notifications'));
     if (!snap.exists()) return [];
@@ -683,6 +691,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       transferBalance,
       deleteUser: deleteUserFn,
       createNotification: createNotificationFn,
+      sendUserNotification: sendUserNotificationFn,
       getNotifications: getNotificationsFn,
       markNotificationRead: markNotificationReadFn,
       deleteNotification: deleteNotificationFn,

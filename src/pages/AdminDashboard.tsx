@@ -23,7 +23,7 @@ type AdminTab = 'overview' | 'users' | 'transactions' | 'courses' | 'settings' |
 
 export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) {
   const { t, lang } = useI18n();
-  const { isAdmin, profile, getAllUsers, getAllTransactions, approveDeposit, rejectDeposit, setAdminRole, addUserBalance, deductUserBalance, transferBalance, createDiscountCode, getAllDiscountCodes, deleteDiscountCode, deleteUser, createNotification, getNotifications, markNotificationRead, deleteNotification } = useAuth();
+  const { isAdmin, profile, getAllUsers, getAllTransactions, approveDeposit, rejectDeposit, setAdminRole, addUserBalance, deductUserBalance, transferBalance, createDiscountCode, getAllDiscountCodes, deleteDiscountCode, deleteUser, createNotification, getNotifications, markNotificationRead, deleteNotification, sendUserNotification } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -497,7 +497,12 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
                                 {lang === 'ar' ? 'تحويل' : 'Transfer'}
                               </button>
                             </div>
-                            <div className="mt-3 pt-3 border-t border-white/10">
+                            <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap gap-2">
+                              <button onClick={e => { e.stopPropagation(); const title = prompt(lang === 'ar' ? 'عنوان الإشعار:' : 'Notification title:'); if (!title) return; const body = prompt(lang === 'ar' ? 'محتوى الإشعار:' : 'Notification body:'); if (!body) return; sendUserNotification(u.uid, title, body); }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-all text-xs font-bold">
+                                <Bell size={12} />
+                                {lang === 'ar' ? 'إرسال إشعار' : 'Send Notification'}
+                              </button>
                               <button onClick={e => { e.stopPropagation(); handleDeleteUser(u.uid, u.name || u.email); }}
                                 disabled={actionLoading === `delete-${u.uid}` || u.uid === profile?.uid}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all text-xs font-bold disabled:opacity-50">
