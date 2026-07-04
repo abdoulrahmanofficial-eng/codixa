@@ -34,7 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         method: 'POST',
         headers: { 'api-key': BREVO_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sender: { name: 'Codixa', email: 'codixa.info.io@gmail.com' },
+          sender: { name: 'Codixa', email: 'noreply@mailin.fr' },
           to: [{ email: to, name: name || '' }],
           subject: 'كود تفعيل حسابك في كودكسا',
           htmlContent: buildHtml(code, name),
