@@ -29,32 +29,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (e: any) { console.error('Resend exception:', e?.message); /* fall through to SMTP */ }
   }
 
-  // Try different SMTP strategies for Gmail
+  // SMTP fallback (Brevo / Sendinblue)
   const SMTP_USER = process.env.SMTP_USER;
   const SMTP_PASS = process.env.SMTP_PASS;
   if (SMTP_USER && SMTP_PASS) {
-    const errors: string[] = [];
-    // Strategy 1: port 587 STARTTLS
-    for (const { port, secure } of [{ port: 587, secure: false }, { port: 465, secure: true }]) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: 'smtp.gmail.com',
-          port,
-          secure,
-          auth: { user: SMTP_USER, pass: SMTP_PASS },
-        });
-        await transporter.sendMail({
-          from: `"Codixa" <${SMTP_USER}>`,
-          to,
-          subject: 'كود تفعيل حسابك في كودكسا',
-          html: buildHtml(code, name),
-        });
-        return res.json({ ok: true, via: `smtp:${port}` });
-      } catch (err: any) {
-        errors.push(`port ${port}: ${err.message}`);
-      }
+    try {
+      const transporter = nodemailer.createTransport({
+        host: 'smtp-relay.brevo.com',
+        port: 587,
+        secure: false,
+        auth: { user: SMTP_USER, pass: SMTP_PASS },
+      });
+      await transporter.sendMail({
+        from: `"Codixa" <${process.env.SMTP_FROM || 'codixa.info.io@gmail.com'}>`,
+        to,
+        subject: 'كود تفعيل حسابك في كودكسا',
+        html: buildHtml(code, name),
+      });
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
     }
-    return res.status(500).json({ error: 'SMTP failed on all ports', details: errors });
   }
 
   res.json({ ok: false, reason: 'No email provider configured. Set RESEND_API_KEY or SMTP_USER+SMTP_PASS' });
