@@ -2,7 +2,7 @@ import type { ChatRequest } from '../src/lib/ai/types';
 import { createGeminiProvider } from '../src/lib/ai/gemini';
 
 export const config = {
-  runtime: 'nodejs18.x',
+  runtime: 'nodejs',
 };
 
 function getApiKey(): string {
