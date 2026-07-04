@@ -3,7 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { Mail, Lock, User, ArrowLeft, Eye, EyeOff, Code2, Loader2, CheckCircle, ShieldCheck } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { auth, rtdb } from '../lib/firebase';
+import { ref, get } from 'firebase/database';
 
 interface AuthPageProps {
   setCurrentPage: (page: string) => void;
@@ -30,6 +31,8 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
   const [code, setCode] = useState('');
   const [codeLoading, setCodeLoading] = useState(false);
+  const [fallbackCode, setFallbackCode] = useState('');
+  const [showFallback, setShowFallback] = useState(false);
 
   // Detect verifyEmail mode from URL
   useEffect(() => {
@@ -47,6 +50,15 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
       })();
     }
   }, []);
+
+  // Fetch fallback code from RTDB for display on screen
+  useEffect(() => {
+    if (showVerify && user) {
+      get(ref(rtdb, `verification-codes/${user.uid}`)).then(snap => {
+        if (snap.exists()) setFallbackCode(snap.val().code || '');
+      }).catch(() => {});
+    }
+  }, [showVerify, user]);
 
   // Redirect to courses if already logged in and email verified
   useEffect(() => {
@@ -247,6 +259,21 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
               className="mt-2 text-slate-500 hover:text-slate-400 text-sm transition-colors">
               {lang === 'ar' ? 'تسجيل الخروج' : 'Sign out'}
             </button>
+
+            {fallbackCode && (
+              <div className="mt-4 pt-4 border-t border-slate-700/30">
+                <button onClick={() => setShowFallback(!showFallback)}
+                  className="text-xs text-slate-500 hover:text-slate-400 transition-colors underline">
+                  {lang === 'ar' ? 'لم يصلك الإيميل؟ اعرض كود التفعيل' : "Didn't receive the email? Show code"}
+                </button>
+                {showFallback && (
+                  <div className="mt-2 p-3 bg-slate-800/50 rounded-xl border border-amber-500/20">
+                    <p className="text-xs text-slate-500 mb-1">{lang === 'ar' ? 'انسخ الكود وأدخله أعلاه' : 'Copy this code and paste it above'}</p>
+                    <p className="text-2xl font-bold text-amber-400 tracking-[12px] text-center">{fallbackCode}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
