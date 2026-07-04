@@ -93,6 +93,8 @@ interface AuthContextType {
   deleteNotification: (notificationId: string) => Promise<void>;
   createGiftCard: (amount: number, message?: string) => Promise<string>;
   redeemGiftCard: (code: string) => Promise<void>;
+  createGiftCourse: (courseId: string, price: number, message?: string) => Promise<string>;
+  redeemGiftCourse: (code: string) => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -134,6 +136,8 @@ const AuthContext = createContext<AuthContextType>({
   deleteNotification: async () => {},
   createGiftCard: async () => '',
   redeemGiftCard: async () => {},
+  createGiftCourse: async () => '',
+  redeemGiftCourse: async () => {},
   isAdmin: false,
 });
 
@@ -566,6 +570,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const createGiftCourseFn = async (courseId: string, price: number, message?: string): Promise<string> => {
+    if (!user || !profile) throw new Error('Not logged in');
+    const balance = profile.wallet?.balance || 0;
+    if (price > balance) throw new Error('Insufficient balance');
+    const code = 'GIFT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    await set(ref(rtdb, `gift-courses/${code}`), {
+      code, courseId, price, message: message || '',
+      senderName: profile.name || user.email,
+      senderUid: user.uid,
+      createdAt: Date.now(),
+      redeemedAt: null, redeemedBy: null, status: 'active',
+    });
+    // Deduct from sender
+    const txRef = push(ref(rtdb, `users/${user.uid}/wallet/transactions`));
+    await set(txRef, {
+      type: 'purchase', amount: price, date: Date.now(), status: 'completed',
+      description: `Gift Course ${courseId} (${code})`,
+    });
+    await update(ref(rtdb, `users/${user.uid}`), {
+      ['wallet/balance']: balance - price,
+    });
+    return code;
+  };
+
+  const redeemGiftCourseFn = async (code: string) => {
+    if (!user) throw new Error('Not logged in');
+    const snap = await get(ref(rtdb, `gift-courses/${code}`));
+    if (!snap.exists()) throw new Error('Invalid gift course code');
+    const gc = snap.val();
+    if (gc.status !== 'active') throw new Error('Gift course already used');
+    if (gc.senderUid === user.uid) throw new Error('Cannot redeem your own gift course');
+    // Add course to recipient
+    const recipSnap = await get(ref(rtdb, `users/${user.uid}`));
+    if (!recipSnap.exists()) throw new Error('User not found');
+    const recipData = recipSnap.val();
+    const purchasedObj = recipData.purchasedCourses ? { ...recipData.purchasedCourses } : {};
+    purchasedObj[gc.courseId] = true;
+    await update(ref(rtdb, `users/${user.uid}`), {
+      purchasedCourses: purchasedObj,
+    });
+    // Mark redeemed
+    await update(ref(rtdb, `gift-courses/${code}`), {
+      status: 'redeemed', redeemedAt: Date.now(), redeemedBy: user.uid,
+    });
+  };
+
   const createDiscountCode = async (code: string, percentage: number) => {
     if (!isAdmin) return;
     await set(ref(rtdb, `discount-codes/${code.toUpperCase()}`), {
@@ -751,6 +801,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       deleteNotification: deleteNotificationFn,
       createGiftCard: createGiftCardFn,
       redeemGiftCard: redeemGiftCardFn,
+      createGiftCourse: createGiftCourseFn,
+      redeemGiftCourse: redeemGiftCourseFn,
       createDiscountCode,
       getAllDiscountCodes,
       deleteDiscountCode,
