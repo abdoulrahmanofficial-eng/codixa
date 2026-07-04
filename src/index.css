@@ -91,6 +91,7 @@ body {
 .animate-slideInLeft { animation: slideInLeft 0.6s ease forwards; }
 .animate-spin-slow { animation: spin-slow 10s linear infinite; }
 .animate-bounce-light { animation: bounce-light 2s ease-in-out infinite; }
+.animate-slide-in { animation: slideInRight 0.4s ease forwards; }
 
 /* Code block styling */
 .code-block {

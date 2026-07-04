@@ -47,6 +47,10 @@
     "gift-courses": {
       ".read": "auth.uid !== null",
       ".write": "auth.uid !== null"
+    },
+    "pending-deposits": {
+      ".read": "root.child('users').child(auth.uid).child('isAdmin').val() === true",
+      ".write": "auth.uid !== null"
     }
   }
 }

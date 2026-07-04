@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserProfile, Transaction, AppNotification } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
@@ -6,7 +6,7 @@ import { getDynamicCourses, updateCoursePrice as updateDynamicPrice, type Backen
 import { setCoursePrice, getAllPriceOverrides, removeCoursePrice } from '../lib/priceService';
 import { courses as staticCourses } from '../data/courses';
 import SeedCoursePanel from './SeedCoursePanel';
-import { ref, get, set } from 'firebase/database';
+import { ref, get, set, onChildAdded, off } from 'firebase/database';
 import { rtdb } from '../lib/firebase';
 import {
   Users, ShoppingCart, CheckCircle, XCircle, TrendingUp, Loader2, ArrowLeft,
@@ -54,6 +54,22 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceSaving, setMaintenanceSaving] = useState(false);
   const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const [toast, setToast] = useState<{ message: string; userName: string; amount: number } | null>(null);
+
+  // Real-time listener for new pending deposits
+  useEffect(() => {
+    if (!isAdmin) return;
+    const pendingRef = ref(rtdb, 'pending-deposits');
+    const handler = onChildAdded(pendingRef, (snap) => {
+      const data = snap.val();
+      if (data?.userName && data?.amount) {
+        playNotificationSound();
+        setToast({ message: lang === 'ar' ? 'طلب شحن جديد' : 'New deposit request', userName: data.userName, amount: data.amount });
+        setTimeout(() => setToast(null), 6000);
+      }
+    });
+    return () => off(pendingRef, 'child_added', handler);
+  }, [isAdmin, lang]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -188,6 +204,21 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
     return [...staticMapped, ...dynamicMapped];
   }, [staticCourses, dynamicCourses]);
 
+  const playNotificationSound = () => {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 800;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    } catch {}
+  };
+
   const getUserName = (userId: string) => users.find(u => u.uid === userId)?.name || 'Unknown';
   const getUserTransactions = (userId: string) => transactions.filter(tx => tx.userId === userId);
 
@@ -274,6 +305,24 @@ export default function AdminDashboard({ setCurrentPage }: AdminDashboardProps) 
             {lang === 'ar' ? 'تحديث' : 'Refresh'}
           </button>
         </div>
+
+        {/* Toast notification for new deposits */}
+        {toast && (
+          <div className="fixed top-4 right-4 z-[100] animate-slide-in cursor-pointer" onClick={() => { setToast(null); setTab('transactions'); }}>
+            <div className="glass rounded-2xl p-4 border border-green-500/30 shadow-lg shadow-green-500/10 flex items-center gap-3 min-w-[280px]">
+              <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center text-green-400 animate-pulse">
+                <DollarSign size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-white font-bold text-sm">{toast.message}</div>
+                <div className="text-slate-300 text-xs truncate">{toast.userName} — {toast.amount} EGP</div>
+              </div>
+              <button onClick={() => setToast(null)} className="text-slate-400 hover:text-white transition-colors p-1">
+                <XCircle size={16} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3 mb-8">

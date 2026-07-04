@@ -10,7 +10,7 @@ import {
   applyActionCode,
   User,
 } from 'firebase/auth';
-import { ref, get, set, update, push, child } from 'firebase/database';
+import { ref, get, set, update, push, remove, child } from 'firebase/database';
 import { auth, rtdb } from '../lib/firebase';
 import { courses } from '../data/courses';
 
@@ -322,6 +322,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...tx,
       date: Date.now(),
     });
+
+    // Notify admins about pending deposits
+    if (tx.type === 'deposit' && tx.status === 'pending') {
+      const pendingRef = push(ref(rtdb, 'pending-deposits'));
+      await set(pendingRef, {
+        userId: user.uid,
+        userName: profile?.name || user.email || 'Unknown',
+        txId,
+        amount: tx.amount,
+        paymentCode: tx.paymentCode || '',
+        date: Date.now(),
+      });
+    }
+
     await refreshProfile();
     return txId;
   };
@@ -338,6 +352,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       [`wallet/transactions/${txId}/status`]: 'completed',
       ['wallet/balance']: (data.wallet?.balance || 0) + amount,
     });
+    // Remove from pending-deposits
+    const pendingSnap = await get(ref(rtdb, 'pending-deposits'));
+    if (pendingSnap.exists()) {
+      const pendingData = pendingSnap.val();
+      for (const key of Object.keys(pendingData)) {
+        if (pendingData[key].txId === txId && pendingData[key].userId === userId) {
+          await remove(ref(rtdb, `pending-deposits/${key}`));
+          break;
+        }
+      }
+    }
   };
 
   const rejectDeposit = async (userId: string, txId: string) => {
@@ -346,6 +371,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await update(ref(rtdb, `users/${userId}`), {
       [`wallet/transactions/${txId}/status`]: 'failed',
     });
+    // Remove from pending-deposits
+    const pendingSnap = await get(ref(rtdb, 'pending-deposits'));
+    if (pendingSnap.exists()) {
+      const pendingData = pendingSnap.val();
+      for (const key of Object.keys(pendingData)) {
+        if (pendingData[key].txId === txId && pendingData[key].userId === userId) {
+          await remove(ref(rtdb, `pending-deposits/${key}`));
+          break;
+        }
+      }
+    }
   };
 
   const findUserByEmail = async (query: string): Promise<{ uid: string; name: string } | null> => {
