@@ -6,6 +6,7 @@ import {
   type BackendCourse, type BackendLesson, type QuizQuestion,
 } from '../lib/courseService';
 import { getCoursePrice } from '../lib/priceService';
+import AIChatPanel from '../components/AIChatPanel';
 import { ArrowLeft, Clock, ChevronLeft, ChevronRight, CheckCircle, Circle, Menu, X, Loader2, ShoppingCart, Lock, HelpCircle, FileText, Dumbbell, Play, BookOpen, Trophy } from 'lucide-react';
 
 interface BackendCoursePageProps {
@@ -735,6 +736,14 @@ export default function BackendCoursePage({ setCurrentPage }: BackendCoursePageP
           </div>
         </main>
       </div>
+
+      {hasContent && lessonContent[currentLessonIndex]?.content && (
+        <AIChatPanel
+          lessonContent={lessonContent[currentLessonIndex].content}
+          lessonTitle={cleanTitle(currentLesson.title)}
+          courseTitle={course?.title}
+        />
+      )}
     </div>
   );
 }

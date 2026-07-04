@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useBilingualContent } from '../i18n/content';
 import { formatEGP } from '../utils/format';
 import { getCoursePrice } from '../lib/priceService';
+import AIChatPanel from '../components/AIChatPanel';
 import {
   ChevronLeft, ChevronRight, BookOpen, Play, CheckCircle,
   Circle, Clock, Trophy, ArrowLeft, Menu, X,
@@ -739,6 +740,14 @@ export default function LessonPage({ selectedCourse, setCurrentPage }: LessonPag
           )}
         </main>
       </div>
+
+      {lesson?.content && (
+        <AIChatPanel
+          lessonContent={lesson.content}
+          lessonTitle={lesson.title}
+          courseTitle={course?.title}
+        />
+      )}
     </div>
   );
 }
