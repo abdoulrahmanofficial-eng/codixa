@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 interface HomePageProps {
-  setCurrentPage: (page: string) => void;
+  setCurrentPage: (page: string, courseId?: string) => void;
   setSelectedCourse: (id: string) => void;
 }
 
@@ -254,7 +254,7 @@ export default function HomePage({ setCurrentPage, setSelectedCourse }: HomePage
             <div
               key={course.id}
               className="glass rounded-2xl overflow-hidden card-hover border border-white/10 cursor-pointer group"
-              onClick={() => { setSelectedCourse(course.id); setCurrentPage('lesson'); }}
+              onClick={() => { setSelectedCourse(course.id); setCurrentPage('lesson', course.id); }}
             >
               <div className={`bg-gradient-to-br ${course.bgGradient} p-6 relative overflow-hidden`}>
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16" />

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
-import { Mail, Lock, User, ArrowLeft, Eye, EyeOff, Code2, Loader2, CheckCircle, ShieldCheck } from 'lucide-react';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { Mail, Lock, User, ArrowLeft, Eye, EyeOff, Code2, Loader2, CheckCircle, ShieldCheck, KeyRound } from 'lucide-react';
 import { auth } from '../lib/firebase';
 
 interface AuthPageProps {
@@ -11,7 +10,7 @@ interface AuthPageProps {
 
 export default function AuthPage({ setCurrentPage }: AuthPageProps) {
   const { t, lang } = useI18n();
-  const { login, register, user, profile, sendVerificationEmail, verifyEmail, verifyWithCode } = useAuth();
+  const { login, register, user, profile, sendVerificationEmail, verifyEmail, verifyWithCode, verifyResetCode, resetPassword } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -21,7 +20,25 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
   const [loading, setLoading] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [resetCodeStep, setResetCodeStep] = useState(false);
+  const [resetCodeInput, setResetCodeInput] = useState('');
+  const [resetCodeLoading, setResetCodeLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [newPwdLoading, setNewPwdLoading] = useState(false);
+  const [toast, setToast] = useState('');
+  const [toastFade, setToastFade] = useState(false);
+
+  useEffect(() => {
+    if (toast) {
+      setToastFade(false);
+      const t1 = setTimeout(() => setToastFade(true), 1700);
+      const t2 = setTimeout(() => { setToast(''); setToastFade(false); }, 2200);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [toast]);
 
   // Email verification state
   const [showVerify, setShowVerify] = useState(false);
@@ -67,6 +84,7 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
           await auth.currentUser.reload();
           if (!auth.currentUser.emailVerified) {
             setShowVerify(true);
+            sendVerificationEmail().then(() => setVerifySent(true)).catch(() => {});
             return;
           }
         }
@@ -78,7 +96,12 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
         }
         await register(email, password, name);
         setShowVerify(true);
-        setVerifySent(true);
+        try {
+          await sendVerificationEmail();
+          setVerifySent(true);
+        } catch {
+          setError(t('auth.error.default'));
+        }
       }
     } catch (err: any) {
       const code = err.code || '';
@@ -99,15 +122,63 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
     setError('');
     setResetLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email);
+      await resetPassword(email);
       setResetSent(true);
+      setResetCodeStep(true);
     } catch (err: any) {
-      const code = err.code || '';
-      if (code === 'auth/invalid-email') setError(t('auth.error.invalidEmail'));
-      else if (code === 'auth/user-not-found') setError(t('auth.error.userNotFound'));
-      else setError(err.message || t('auth.error.default'));
+      setError(err.message || t('auth.error.default'));
     } finally {
       setResetLoading(false);
+    }
+  };
+
+  const handleVerifyResetCode = async () => {
+    setError('');
+    if (!resetCodeInput || resetCodeInput.length !== 6) {
+      setError(lang === 'ar' ? 'أدخل الكود المكون من 6 أرقام' : 'Enter the 6-digit code');
+      return;
+    }
+    setResetCodeLoading(true);
+    try {
+      const ok = await verifyResetCode(email, resetCodeInput);
+      if (ok) {
+        setResetCodeStep(false);
+        setShowNewPassword(true);
+      } else {
+        setError(lang === 'ar' ? 'الكود غير صحيح أو منتهي الصلاحية' : 'Invalid or expired code');
+      }
+    } catch {
+      setError(lang === 'ar' ? 'حدث خطأ' : 'An error occurred');
+    } finally {
+      setResetCodeLoading(false);
+    }
+  };
+
+  const handleSetNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!newPassword || newPassword.length < 6) {
+      setError(lang === 'ar' ? 'كلمة السر يجب أن تكون 6 أحرف على الأقل' : 'Password must be at least 6 characters');
+      return;
+    }
+    setNewPwdLoading(true);
+    try {
+      const res = await fetch('/api/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      setToast(lang === 'ar' ? '✅ تم تغيير كلمة السر بنجاح' : '✅ Password updated');
+      setShowNewPassword(false);
+      setShowReset(false);
+      setResetSent(false);
+      setNewPassword('');
+    } catch (err: any) {
+      setError(err.message || t('auth.error.default'));
+    } finally {
+      setNewPwdLoading(false);
     }
   };
 
@@ -242,6 +313,15 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
         <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
 
+      {toast && (
+        <div className={`fixed bottom-6 left-0 right-0 z-50 flex justify-center ${toastFade ? 'animate-fadeOut' : 'animate-slideUp'}`}>
+          <div className="flex items-center gap-2.5 px-5 py-3.5 bg-green-500/10 border border-green-500/25 rounded-2xl backdrop-blur-xl shadow-2xl shadow-green-500/10">
+            <div className="w-2 h-2 rounded-full bg-green-400 animate-ping" />
+            <span className="text-green-400 font-semibold text-sm">{toast}</span>
+          </div>
+        </div>
+      )}
+
       <div className="relative w-full max-w-md">
         <button onClick={() => setCurrentPage('home')}
           className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-6 text-sm">
@@ -263,7 +343,53 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
           </div>
 
           {showReset ? (
-            resetSent ? (
+            showNewPassword ? (
+              <form onSubmit={handleSetNewPassword} className="space-y-4">
+                <div className="text-center mb-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-4">
+                    <KeyRound size={32} className="text-white" />
+                  </div>
+                  <p className="text-slate-300 text-sm">{lang === 'ar' ? 'أدخل كلمة السر الجديدة' : 'Enter your new password'}</p>
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm font-semibold mb-2">{t('auth.password')}</label>
+                  <div className="relative">
+                    <Lock size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type={showNewPwd ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                      placeholder="••••••"
+                      className={`w-full bg-white/5 border border-white/10 rounded-xl py-3 ${lang === 'ar' ? 'pr-10 pl-10' : 'pl-10 pr-10'} text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 transition-colors`} minLength={6} required />
+                    <button type="button" onClick={() => setShowNewPwd(!showNewPwd)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
+                      {showNewPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+                {error && <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm text-center">{error}</div>}
+                <button type="submit" disabled={newPwdLoading}
+                  className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50">
+                  {newPwdLoading ? <Loader2 size={18} className="animate-spin" /> : (lang === 'ar' ? 'تغيير كلمة السر' : 'Reset Password')}
+                </button>
+              </form>
+            ) : resetCodeStep ? (
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mx-auto mb-4">
+                  <Code2 size={32} className="text-white" />
+                </div>
+                <p className="text-green-400 font-semibold mb-1">{t('auth.resetSent')}</p>
+                <p className="text-slate-400 text-xs mb-4">{lang === 'ar' ? 'أدخل كود إعادة التعيين المرسل إلى بريدك' : 'Enter the reset code sent to your email'}</p>
+                {error && <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm text-center mb-4">{error}</div>}
+                <div className="flex gap-2 mb-3">
+                  <input type="text" maxLength={6} value={resetCodeInput} onChange={e => setResetCodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000"
+                    className="flex-1 text-center text-2xl tracking-[12px] font-bold bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 transition-all" />
+                  <button onClick={handleVerifyResetCode} disabled={resetCodeLoading || resetCodeInput.length !== 6}
+                    className="px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50">
+                    {resetCodeLoading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+                  </button>
+                </div>
+                <button onClick={() => { setShowReset(false); setResetCodeStep(false); setResetSent(false); setResetCodeInput(''); setError(''); }}
+                  className="text-indigo-400 hover:text-indigo-300 font-semibold text-sm">{t('auth.backToLogin')}</button>
+              </div>
+            ) : resetSent ? (
               <div className="text-center py-6">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-4">
                   <CheckCircle size={32} className="text-white" />
@@ -295,8 +421,7 @@ export default function AuthPage({ setCurrentPage }: AuthPageProps) {
               </form>
             )
           ) : (
-            <>
-              <form onSubmit={handleSubmit} className="space-y-4">
+            <><form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div>
                 <label className="block text-slate-300 text-sm font-semibold mb-2">{t('auth.name')}</label>

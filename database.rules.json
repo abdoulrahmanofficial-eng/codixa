@@ -62,10 +62,20 @@
       ".read": true,
       ".write": "root.child('users').child(auth.uid).child('isAdmin').val() === true"
     },
+    "user-push-subs": {
+      ".read": true,
+      ".write": "auth.uid !== null"
+    },
     "verification-codes": {
       "$uid": {
         ".read": "auth.uid === $uid",
         ".write": "auth.uid === $uid"
+      }
+    },
+    "reset-codes": {
+      "$email": {
+        ".read": true,
+        ".write": true
       }
     }
   }

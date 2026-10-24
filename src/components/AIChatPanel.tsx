@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Loader2, Copy, CheckCircle, Sparkles, Bot, User, AlertCircle, Square } from 'lucide-react';
+import { X, Send, Copy, CheckCircle, Sparkles, Bot, User, AlertCircle, Square } from 'lucide-react';
 import { sendChatMessage } from '../lib/aiService';
 import type { ChatMessage } from '../lib/ai/types';
 
@@ -10,33 +10,10 @@ interface AIChatPanelProps {
   courseTitle?: string;
 }
 
-function formatMarkdown(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-      const encoded = code
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      return `<div class="code-block-wrapper"><div class="code-block-header"><span>${lang || 'code'}</span><button class="copy-btn" onclick="(function(){const el=document.createElement('textarea');el.value=decodeURIComponent('${encodeURIComponent(code)}');document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);const btn=this;btn.innerHTML='<svg...check...>';setTimeout(()=>btn.innerHTML='<svg...copy...>',2000)})()">Copy</button></div><pre><code class="language-${lang}">${encoded}</code></pre></div>`;
-    })
-    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/^### (.+)$/gm, '<h3 class="chat-h3">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 class="chat-h2">$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1 class="chat-h1">$1</h1>')
-    .replace(/^- (.+)$/gm, '<li class="chat-li">$1</li>')
-    .replace(/^\d+\. (.+)$/gm, '<li class="chat-li">$1</li>')
-    .replace(/\n\n/g, '</p><p class="chat-p">')
-    .replace(/\n/g, '<br/>');
-}
-
-function wrapParagraphs(html: string): string {
-  if (!html.startsWith('<')) return `<p class="chat-p">${html}</p>`;
-  return html;
+function getTextDir(text: string): 'rtl' | 'ltr' {
+  const arabic = (text.match(/[\u0600-\u06FF]/g) || []).length;
+  const latin = (text.match(/[A-Za-z]/g) || []).length;
+  return arabic > latin ? 'rtl' : 'ltr';
 }
 
 export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }: AIChatPanelProps) {
@@ -160,48 +137,45 @@ export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }:
       parts.push({ type: 'code', lang: match[1] || 'text', content: match[2] });
       lastIndex = match.index + match[0].length;
     }
-    if (lastIndex < content.length) {
-      parts.push({ type: 'text', lang: '', content: content.slice(lastIndex) });
+
+    const rest = content.slice(lastIndex);
+    if (rest.includes('```')) {
+      const idx = rest.indexOf('```');
+      if (idx > 0) parts.push({ type: 'text', lang: '', content: rest.slice(0, idx) });
+      const after = rest.slice(idx + 3);
+      const nl = after.indexOf('\n');
+      const lang = (nl >= 0 ? after.slice(0, nl) : '').trim();
+      const code = nl >= 0 ? after.slice(nl + 1) : after;
+      if (code) parts.push({ type: 'code', lang, content: code });
+    } else if (rest) {
+      parts.push({ type: 'text', lang: '', content: rest });
     }
 
     return parts.map((part, i) => {
       if (part.type === 'code') {
         return (
-          <div key={i} className="code-block-wrapper my-3 rounded-xl overflow-hidden border border-white/10">
-            <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/10">
-              <span className="text-xs text-slate-400 font-mono">{part.lang || 'code'}</span>
-              <button
-                onClick={() => copyCode(part.content, i)}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors"
-              >
-                {copiedIndex === i ? <CheckCircle size={12} className="text-green-400" /> : <Copy size={12} />}
-                {copiedIndex === i ? 'Copied!' : 'Copy'}
-              </button>
+          <div key={i} className="code-block-wrapper my-3">
+            <div className="code-block overflow-hidden">
+              <div className="terminal-header">
+                <span className="terminal-dot bg-red-400/70" />
+                <span className="terminal-dot bg-yellow-400/70" />
+                <span className="terminal-dot bg-green-400/70" />
+                <span className="text-xs text-slate-400 font-mono ml-2">{part.lang || 'code'}</span>
+                <button
+                  onClick={() => copyCode(part.content, i)}
+                  className="ml-auto flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors"
+                >
+                  {copiedIndex === i ? <CheckCircle size={12} className="text-green-400" /> : <Copy size={12} />}
+                  {copiedIndex === i ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <pre className="p-4 text-[13px] font-mono text-slate-200 overflow-x-auto leading-relaxed"><code>{part.content}</code></pre>
             </div>
-            <pre className="p-4 text-sm font-mono text-slate-200 overflow-x-auto leading-relaxed bg-black/40"><code>{part.content}</code></pre>
           </div>
         );
       }
-      const html = part.content
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/`([^`]+)`/g, '<code class="inline-code bg-white/10 px-1.5 py-0.5 rounded text-sm font-mono text-pink-300">$1</code>')
-        .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
-        .replace(/\*([^*]+)\*/g, '<em class="text-slate-200">$1</em>')
-        .replace(/^### (.+)$/gm, '<h3 class="text-white font-bold text-base mt-3 mb-1">$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2 class="text-white font-bold text-lg mt-4 mb-1">$1</h2>')
-        .replace(/^# (.+)$/gm, '<h1 class="text-white font-bold text-xl mt-4 mb-2">$1</h1>')
-        .replace(/^- (.+)$/gm, '• $1')
-        .replace(/^\d+\. (.+)$/gm, (m) => {
-          const num = m.match(/^(\d+)\./)?.[1] || '';
-          return `<span class="text-pink-400 font-bold">${num}.</span> ${m.replace(/^\d+\.\s*/, '')}`;
-        });
-
       return (
-        <div key={i} className="chat-text text-sm leading-relaxed text-slate-300 [&_p]:my-2">
-          <div dangerouslySetInnerHTML={{ __html: html }} />
-        </div>
+        <div key={i} className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: renderTextHtml(part.content) }} />
       );
     });
   };
@@ -248,7 +222,7 @@ export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }:
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
               {messages.map((msg, i) => (
-                <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                <div key={i} dir={msg.role === 'assistant' ? getTextDir(msg.content) : undefined} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                   <div className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center text-xs font-bold ${
                     msg.role === 'user'
                       ? 'bg-indigo-500/20 text-indigo-400'
@@ -256,11 +230,11 @@ export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }:
                   }`}>
                     {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                   </div>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${
                     msg.role === 'user'
-                      ? 'bg-indigo-500/20 text-white rounded-tr-sm'
-                      : 'bg-white/5 text-slate-200 rounded-tl-sm border border-white/5'
-                  }`}>
+                      ? 'bg-gradient-to-br from-indigo-600/30 to-purple-600/20 text-white rounded-tr-sm border border-indigo-500/20'
+                      : 'bg-white/[0.04] text-slate-200 rounded-tl-sm border border-white/5'
+                  }`} dir={getTextDir(msg.content)} style={{ textAlign: getTextDir(msg.content) === 'rtl' ? 'right' : 'left' }}>
                     {renderMessage(msg.content)}
                   </div>
                 </div>
@@ -268,13 +242,13 @@ export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }:
 
               {/* Streaming indicator */}
               {streaming && streamingText && (
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-xl shrink-0 bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <div dir={getTextDir(streamingText)} className="flex gap-3">
+                  <div className="w-8 h-8 rounded-xl shrink-0 bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center ring-1 ring-white/10">
                     <Bot size={14} className="text-white" />
                   </div>
-                  <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white/5 text-slate-200 rounded-tl-sm border border-white/5">
-                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{streamingText}</pre>
-                    <span className="inline-block w-2 h-4 bg-purple-400 ml-0.5 animate-pulse" />
+                  <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 bg-white/[0.04] text-slate-200 border border-white/5" dir={getTextDir(streamingText)} style={{ textAlign: getTextDir(streamingText) === 'rtl' ? 'right' : 'left' }}>
+                    {renderMessage(streamingText)}
+                    <span className="inline-block w-2 h-4 bg-purple-400 ml-0.5 animate-pulse align-middle" />
                   </div>
                 </div>
               )}
@@ -285,7 +259,7 @@ export default function AIChatPanel({ lessonContent, lessonTitle, courseTitle }:
                   <div className="w-8 h-8 rounded-xl shrink-0 bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
                     <Bot size={14} className="text-white" />
                   </div>
-                  <div className="max-w-[80%] rounded-2xl px-5 py-4 bg-white/5 rounded-tl-sm border border-white/5">
+                  <div className="max-w-[80%] rounded-2xl px-5 py-4 bg-white/[0.04] rounded-tl-sm border border-white/5">
                     <div className="flex gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '0ms' }} />
                       <span className="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }} />

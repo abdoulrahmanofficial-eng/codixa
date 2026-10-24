@@ -20,8 +20,10 @@ import PlaygroundPage from './pages/PlaygroundPage';
 import CertificatePage from './pages/CertificatePage';
 import AboutPage from './pages/AboutPage';
 import BackendCoursePage from './pages/BackendCoursePage';
+import CsharpCoursePage from './pages/CsharpCoursePage';
 import NotificationsPage from './pages/NotificationsPage';
 import GiftCardPage from './pages/GiftCardPage';
+import MentorPage from './pages/MentorPage';
 
 const pageMap: Record<string, string> = {
   home: '/',
@@ -38,9 +40,10 @@ const pageMap: Record<string, string> = {
   admin: '/admin',
   notifications: '/notifications',
   giftcard: '/giftcard',
+  mentor: '/mentor',
 };
 
-const noHeaderPaths = ['/lesson', '/auth', '/payment', '/certificate', '/backend-course'];
+const noHeaderPaths = ['/lesson', '/auth', '/payment', '/certificate', '/backend-course', '/mentor'];
 
 type NavContextType = {
   selectedCourse: string;
@@ -102,8 +105,10 @@ function RProfile() { const n = useNavigate(); const sp = useCallback((p: string
 function RAbout() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="about"><AboutPage setCurrentPage={sp} /></AppShell>; }
 function RAdmin() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="admin"><AdminDashboard setCurrentPage={sp} /></AppShell>; }
 function RBackend() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell showHeader={false} setCurrentPage={sp} pageName="backend-course"><BackendCoursePage setCurrentPage={sp} /></AppShell>; }
+function RCsharp() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell showHeader={false} setCurrentPage={sp} pageName="csharp-course"><CsharpCoursePage setCurrentPage={sp} /></AppShell>; }
 function RNotifications() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="notifications"><NotificationsPage setCurrentPage={sp} /></AppShell>; }
 function RGiftCard() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <AppShell setCurrentPage={sp} pageName="giftcard"><GiftCardPage setCurrentPage={sp} /></AppShell>; }
+function RMentor() { const n = useNavigate(); const sp = useCallback((p: string) => makeNav(n, '')(p), [n]); return <div className="min-h-screen bg-slate-900"><MentorPage /></div>; }
 
 function LessonRoute() {
   const { courseId } = useParams();
@@ -168,6 +173,7 @@ function AppRoutes() {
         <Route path="/about" element={<RAbout />} />
         <Route path="/roadmap" element={<RRoadmap />} />
         <Route path="/courses" element={<RCourses />} />
+        <Route path="/mentor" element={<RMentor />} />
         <Route path="/" element={<RHome />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -189,6 +195,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/admin" element={<RAdmin />} />
         <Route path="/backend-course" element={<RBackend />} />
+        <Route path="/csharp-course" element={<RCsharp />} />
         <Route path="/notifications" element={<RNotifications />} />
         <Route path="*" element={<Navigate to="/admin" />} />
       </Routes>
@@ -210,9 +217,11 @@ function AppRoutes() {
       <Route path="/lesson/:courseId" element={<LessonRoute />} />
       <Route path="/certificate/:courseId" element={<CertRoute />} />
       <Route path="/backend-course" element={<RBackend />} />
+      <Route path="/csharp-course" element={<RCsharp />} />
         <Route path="/admin" element={<RAdmin />} />
         <Route path="/notifications" element={<RNotifications />} />
         <Route path="/giftcard" element={<RGiftCard />} />
+        <Route path="/mentor" element={<RMentor />} />
         <Route path="*" element={<Navigate to="/courses" />} />
     </Routes>
   );

@@ -181,6 +181,81 @@ async function streamOpenCodeZen(message: string, history: any[], lessonContent:
   });
 }
 
+async function streamCloudflare(message: string, history: any[], lessonContent: string, lessonTitle?: string, courseTitle?: string): Promise<ReadableStream> {
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const apiKey = process.env.CLOUDFLARE_API_TOKEN || process.env.CF_API_TOKEN;
+  if (!apiKey || !accountId) throw new Error('Cloudflare credentials not configured');
+
+  const model = process.env.CHAT_MODEL || process.env.CLOUDFLARE_MODEL || '@cf/qwen/qwen2.5-coder-32b-instruct';
+
+  const messages: any[] = [
+    { role: 'system', content: buildSystemPrompt(lessonContent, lessonTitle, courseTitle) },
+  ];
+  if (history && Array.isArray(history)) {
+    for (const msg of history) {
+      if (msg.role && msg.content) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+  }
+  messages.push({ role: 'user', content: message });
+
+  const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      stream: true,
+      temperature: 0.5,
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Cloudflare API error: ${err}`);
+  }
+
+  const body = response.body;
+  if (!body) throw new Error('No response body');
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data:')) continue;
+            const jsonStr = trimmed.slice(5).trim();
+            if (!jsonStr) continue;
+            if (jsonStr === '[DONE]') break;
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const text = parsed.choices?.[0]?.delta?.content;
+              if (text) controller.enqueue(new TextEncoder().encode(text));
+            } catch {}
+          }
+          if (buffer.trim() === 'data: [DONE]') break;
+        }
+      } catch (e) { controller.error(e); }
+      finally { controller.close(); reader.releaseLock(); }
+    },
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -193,7 +268,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const provider = process.env.AI_PROVIDER || 'opencode';
+    const explicit = (process.env.AI_PROVIDER || '').trim();
+    const cfReady = !!(process.env.CLOUDFLARE_ACCOUNT_ID && (process.env.CLOUDFLARE_API_TOKEN || process.env.CF_API_TOKEN));
+    const provider = explicit || (cfReady ? 'cloudflare' : 'opencode');
     let stream: ReadableStream;
 
     if (provider === 'openai') {
@@ -201,6 +278,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else if (provider === 'gemini') {
       const { streamGemini } = await import('./_gemini');
       stream = await streamGemini(message, history, lessonContent, lessonTitle, courseTitle);
+    } else if (provider === 'cloudflare') {
+      stream = await streamCloudflare(message, history, lessonContent, lessonTitle, courseTitle);
     } else {
       stream = await streamOpenCodeZen(message, history, lessonContent, lessonTitle, courseTitle);
     }

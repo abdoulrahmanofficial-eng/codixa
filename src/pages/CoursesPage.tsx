@@ -6,11 +6,11 @@ import { useBilingualContent } from '../i18n/content';
 import { getDynamicCourses, type BackendCourse } from '../lib/courseService';
 import { getAllPriceOverrides } from '../lib/priceService';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, BookOpen, Clock, Users, ChevronLeft, Play, Star, Trophy, Zap, Lock, ShoppingCart, Loader2, Server } from 'lucide-react';
+import { Search, Filter, BookOpen, Clock, Users, ChevronLeft, Play, Star, Trophy, Zap, Lock, ShoppingCart, Loader2, Server, Brain } from 'lucide-react';
 
 
 interface CoursesPageProps {
-  setCurrentPage: (page: string) => void;
+  setCurrentPage: (page: string, courseId?: string) => void;
   setSelectedCourse: (id: string) => void;
 }
 
@@ -106,6 +106,7 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
   const languages = [t('common.all'), 'Scratch', 'Python', 'HTML/CSS', 'JavaScript', 'Python + AI'];
 
   const filtered = localizedCourses.filter(c => {
+    if (c.id === 'mentor') return false;
     const matchSearch = c.title.includes(searchQuery) || c.description.includes(searchQuery);
     const matchLevel = selectedLevel === t('common.all') || c.level === selectedLevel;
     const matchLang = selectedLang === t('common.all') || c.language === selectedLang;
@@ -116,6 +117,10 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
     if (courseId === 'backend-engineering') {
       setSelectedCourse(courseId);
       setCurrentPage('backend-course');
+      return;
+    }
+    if (courseId === 'mentor') {
+      setCurrentPage('mentor');
       return;
     }
     const course = courses.find(c => c.id === courseId);
@@ -138,8 +143,9 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
     if (!confirmCourse || !user) return;
     const course = courses.find(c => c.id === confirmCourse);
     const isBackend = confirmCourse === 'backend-engineering';
-    if (!course && !isBackend) return;
-    const defaultPrice = isBackend ? (dynamicCourses.find(d => d.id === 'backend-engineering')?.price ?? 0) : course!.price;
+    const isCsharp = confirmCourse === 'csharp';
+    if (!course && !isBackend && !isCsharp) return;
+    const defaultPrice = isBackend ? (dynamicCourses.find(d => d.id === 'backend-engineering')?.price ?? 0) : (isCsharp ? (dynamicCourses.find(d => d.id === 'csharp')?.price ?? 0) : course!.price);
     const basePrice = getEffectivePrice(confirmCourse, defaultPrice);
     const finalPrice = discountValid ? basePrice - Math.round(basePrice * discountPct / 100) : basePrice;
     if (profile && profile.wallet.balance >= finalPrice) {
@@ -152,7 +158,11 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
       setConfirmCourse(null);
       if (success) {
         setSelectedCourse(confirmCourse);
-        setCurrentPage(isBackend ? 'backend-course' : 'lesson');
+        if (confirmCourse === 'mentor') {
+          setCurrentPage('mentor');
+        } else {
+          setCurrentPage(isBackend || isCsharp ? 'csharp-course' : 'lesson', confirmCourse);
+        }
       }
     } else {
       setConfirmCourse(null);
@@ -212,7 +222,7 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
                 )}
               </div>
               <button
-                onClick={() => { setSelectedCourse(continueCourse.course.id); setCurrentPage(continueCourse.course.id === 'backend-engineering' ? 'backend-course' : 'lesson'); }}
+                onClick={() => { setSelectedCourse(continueCourse.course.id); setCurrentPage(continueCourse.course.id === 'backend-engineering' ? 'backend-course' : 'lesson', continueCourse.course.id); }}
                 className="flex-shrink-0 px-5 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold text-sm transition-all backdrop-blur-sm border border-white/20"
               >
                 {continueCourse.progress > 0 ? (lang === 'ar' ? 'استمر' : 'Continue') : (lang === 'ar' ? 'ابدأ' : 'Start')} →
@@ -279,7 +289,7 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
         {/* Results Count */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-slate-400 text-sm">
-            {t('courses.showing')} <span className="text-white font-bold">{filtered.length + 1}</span> {t('courses.course')}
+            {t('courses.showing')} <span className="text-white font-bold">{filtered.length + 2}</span> {t('courses.course')}
           </p>
         </div>
 
@@ -495,6 +505,80 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
               </div>
             );
           })}
+
+          {/* Codixa Mentor Card */}
+          {(() => {
+            const mPrice = getEffectivePrice('mentor', 99);
+            const mPurchased = user && profile?.purchasedCourses?.includes('mentor');
+            return (
+              <div key="mentor"
+                className="glass rounded-2xl overflow-hidden card-hover border border-indigo-500/20 cursor-pointer group"
+                onClick={() => mPurchased ? setCurrentPage('mentor') : setCurrentPage('mentor')}
+              >
+                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20" />
+                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full translate-y-12 -translate-x-12" />
+                  <div className="relative flex items-start justify-between">
+                    <div>
+                      <div className="text-5xl mb-3">🧠</div>
+                      <span className="badge text-xs bg-purple-500/40 text-purple-200 border border-purple-400/30">
+                        {lang === 'ar' ? 'AI — غير محدود' : 'AI — Unlimited'}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="glass rounded-xl px-3 py-1.5 border border-white/20">
+                        <span className="text-white text-xs font-bold">{lang === 'ar' ? 'برمجة' : 'Code'}</span>
+                      </div>
+                      {mPurchased ? (
+                        <span className="px-2 py-0.5 bg-green-500/30 text-green-200 rounded-lg text-xs font-bold border border-green-400/30">
+                          {lang === 'ar' ? 'مملوك' : 'Owned'}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-yellow-500/30 text-yellow-200 rounded-lg text-xs font-bold border border-yellow-400/30">
+                          {mPrice} EGP
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <h3 className="text-white font-bold text-lg mb-2 group-hover:text-indigo-400 transition-colors">
+                    {lang === 'ar' ? 'Codixa Mentor' : 'Codixa Mentor'}
+                  </h3>
+                  <p className="text-slate-400 text-sm mb-4 leading-relaxed line-clamp-2">
+                    {lang === 'ar'
+                      ? 'مدرّس برمجة ذكي بالذكاء الاصطناعي. كل اللغات، حل المسائل، تصحيح الأخطاء، وتوليد رسوم توضيحية.'
+                      : 'AI programming tutor. All languages, problem solving, debugging, and generated diagrams.'}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {[(lang === 'ar' ? 'كل اللغات' : 'All Languages'), (lang === 'ar' ? 'خوارزميات' : 'Algorithms'), (lang === 'ar' ? 'تصحيح الأخطاء' : 'Debugging'), (lang === 'ar' ? 'توليد صور' : 'Image Gen')].map(skill => (
+                      <span key={skill} className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 rounded text-xs border border-indigo-500/20">{skill}</span>
+                    ))}
+                  </div>
+                  {mPurchased ? (
+                    <button onClick={(e) => { e.stopPropagation(); setCurrentPage('mentor'); }}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-all group-hover:shadow-lg group-hover:shadow-indigo-500/30">
+                      <Brain size={14} />
+                      {lang === 'ar' ? 'ادخل إلى Mentor' : 'Open Mentor'}
+                      <ChevronLeft size={14} />
+                    </button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button onClick={(e) => { e.stopPropagation(); setCurrentPage('mentor'); }}
+                        className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white rounded-xl font-bold text-sm transition-all">
+                        {lang === 'ar' ? 'جرب مجاناً' : 'Try for Free'}
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); user ? setConfirmCourse('mentor') : setCurrentPage('auth'); }}
+                        className="flex-1 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:opacity-90 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-1">
+                        <Star size={14} />
+                        {lang === 'ar' ? 'اشترك' : 'Subscribe'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* No Results */}
@@ -530,16 +614,17 @@ export default function CoursesPage({ setCurrentPage, setSelectedCourse }: Cours
       <AnimatePresence>
         {confirmCourse && (() => {
           const isBackend = confirmCourse === 'backend-engineering';
-          const dc = isBackend ? dynamicCourses.find(d => d.id === 'backend-engineering') : null;
-          const c = isBackend ? null : courses.find(co => co.id === confirmCourse);
-          if (!c && !isBackend) return null;
-          const defaultPrice = isBackend ? (dc?.price ?? 0) : c!.price;
+          const isCsharp = confirmCourse === 'csharp';
+          const dc = isBackend ? dynamicCourses.find(d => d.id === 'backend-engineering') : (isCsharp ? dynamicCourses.find(d => d.id === 'csharp') : null);
+          const c = isBackend || isCsharp ? null : courses.find(co => co.id === confirmCourse);
+          if (!c && !isBackend && !isCsharp) return null;
+          const defaultPrice = isBackend ? (dc?.price ?? 0) : (isCsharp ? (dc?.price ?? 0) : c!.price);
           const effectivePrice = getEffectivePrice(confirmCourse, defaultPrice);
           const enoughBalance = profile && profile.wallet.balance >= effectivePrice;
-          const title = isBackend ? (lang === 'ar' ? 'مسار تطوير الواجهات الخلفية الإحترافي' : 'Production Backend Engineering Track') : c!.title;
-          const desc = isBackend ? (lang === 'ar' ? 'مسار متكامل لتطوير الواجهات الخلفية من الصفر إلى الاحتراف' : 'A complete backend engineering track from zero to production') : c!.description;
-          const icon = isBackend ? '⚙️' : c!.icon;
-          const bgGradient = isBackend ? 'from-slate-700 to-slate-900' : c!.bgGradient;
+          const title = isBackend ? (lang === 'ar' ? 'مسار تطوير الواجهات الخلفية الإحترافي' : 'Production Backend Engineering Track') : (isCsharp ? (lang === 'ar' ? 'برمجة لغة C#' : 'C# Programming - From Fundamentals to Advanced') : c!.title);
+          const desc = isBackend ? (lang === 'ar' ? 'مسار متكامل لتطوير الواجهات الخلفية من الصفر إلى الاحتراف' : 'A complete backend engineering track from zero to production') : (isCsharp ? (lang === 'ar' ? 'تعلم C# البرمجة من الأساسييات إلى المستويات المتقدمة! أنشئ تطبيقات سطح المكتب، واجهات برمجة الويب مع ASP.NET Core، مكونات الألعاب مع Unity، والحلول المؤسسية' : 'Learn C# programming from basic syntax to advanced concepts! Build desktop apps, web APIs, game components with Unity, and enterprise solutions. Perfect for aspiring .NET developers and game programmers.') : c!.description);
+          const icon = isBackend ? '⚙️' : (isCsharp ? '📜' : c!.icon);
+          const bgGradient = isBackend ? 'from-slate-700 to-slate-900' : (isCsharp ? 'from-violet-500 to-purple-500' : c!.bgGradient);
           return (
             <motion.div
               initial={{ opacity: 0 }}

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Home, Map, Trophy, Code2, X, LogOut, Wallet, User, Globe, Zap, Shield, Settings, Terminal, Info, Gift } from 'lucide-react';
+import { BookOpen, Home, Map, Trophy, Code2, X, LogOut, Wallet, User, Globe, Zap, Shield, Settings, Terminal, Info, Gift, Brain } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fmt } from '../lib/format';
@@ -66,6 +66,7 @@ export default function Sidebar({ currentPage, setCurrentPage, open, setOpen }: 
         { id: 'achievements', label: t('nav.achievements'), icon: <Trophy size={20} /> },
         { id: 'playground', label: t('nav.playground'), icon: <Terminal size={20} /> },
         { id: 'giftcard', label: lang === 'ar' ? 'بطاقات الهدايا' : 'Gift Cards', icon: <Gift size={20} /> },
+        { id: 'mentor', label: lang === 'ar' ? 'Codixa Mentor' : 'Codixa Mentor', icon: <Brain size={20} className="text-indigo-400" /> },
       ];
 
   return (

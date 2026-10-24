@@ -4,7 +4,7 @@ import { useBilingualContent } from '../i18n/content';
 import { ArrowLeft, Clock, Users, BookOpen, Zap, Target } from 'lucide-react';
 
 interface RoadmapPageProps {
-  setCurrentPage: (page: string) => void;
+  setCurrentPage: (page: string, courseId?: string) => void;
   setSelectedCourse: (id: string) => void;
 }
 
@@ -111,7 +111,7 @@ export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: Roadm
                             <div className="flex flex-col sm:flex-row gap-3">
                               {course && (
                                 <button
-                                  onClick={() => { setSelectedCourse(step.courseId); setCurrentPage('lesson'); }}
+                                  onClick={() => { setSelectedCourse(step.courseId); setCurrentPage('lesson', step.courseId); }}
                                   className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r ${roadmap.color} text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-all hover:scale-105 shadow-lg`}
                                 >
                                   <Zap size={14} />
@@ -171,7 +171,7 @@ export default function RoadmapPage({ setCurrentPage, setSelectedCourse }: Roadm
             ].map((item, i) => (
               <button
                 key={i}
-                onClick={() => { setSelectedCourse(item.courseId); setCurrentPage('lesson'); }}
+                onClick={() => { setSelectedCourse(item.courseId); setCurrentPage('lesson', item.courseId); }}
                 className="glass rounded-2xl p-4 border border-white/10 hover:border-indigo-500/30 transition-all hover:scale-105 text-center"
               >
                 <div className="text-3xl mb-2">{item.emoji}</div>

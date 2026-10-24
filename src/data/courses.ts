@@ -8218,7 +8218,79 @@ npm run build   # بناء نسخة إنتاج
             }
           ]
         }
-      ]
+    ]
+  },
+  {
+    id: 'csharp',
+    title: 'C# Programming - From Fundamentals to Advanced',
+    description: 'Learn C# programming from basic syntax to advanced concepts! Build desktop apps, web APIs, game components with Unity, and enterprise solutions. Perfect for aspiring .NET developers and game programmers.',
+    level: 'مبتدئ إلى متقدم',
+    ageRange: '16-25 سنة',
+    duration: '12 أسبوعًا',
+    lessons: 40,
+    icon: '📜',
+    color: '#b67eff',
+    bgGradient: 'from-violet-500 to-purple-500',
+    language: 'C#',
+    skills: ['C# basics', 'OOP', 'LINQ', 'ASP.NET Core', 'Unity', 'Desktop apps', 'Web APIs', 'Game development'],
+    prerequisites: ['Basic programming knowledge recommended'],
+    free: false,
+    price: 299,
+    chapters: [
+      {
+        id: 'csharp-ch1',
+        title: 'Introduction to C#',
+        lessons: 12,
+        start: 1,
+        end: 12
+      },
+      {
+        id: 'csharp-ch2',
+        title: 'Object-Oriented Programming',
+        lessons: 10,
+        start: 13,
+        end: 22
+      },
+      {
+        id: 'csharp-ch3',
+        title: 'Advanced C# Features',
+        lessons: 10,
+        start: 23,
+        end: 32
+      },
+      {
+        id: 'csharp-ch4',
+        title: 'Web Development with ASP.NET Core',
+        lessons: 4,
+        start: 33,
+        end: 36
+      },
+      {
+        id: 'csharp-ch5',
+        title: 'Game Development with Unity',
+        lessons: 4,
+        start: 37,
+        end: 40
+      }
+    ]
+  },
+  {
+    id: 'mentor',
+    title: 'Codixa Mentor',
+    description: 'مدرّس برمجة ذكي بالذكاء الاصطناعي — كل اللغات والمجالات، غير محدود وبدون إعلانات',
+    level: 'متوسط',
+    ageRange: 'الكل',
+    duration: 'شهري',
+    lessons: 0,
+    icon: '🧠',
+    color: '#8b5cf6',
+    bgGradient: 'from-indigo-500 to-purple-600',
+    language: 'AI',
+    skills: ['كل لغات البرمجة', 'حل المسائل والخوارزميات', 'تصحيح الأخطاء', 'توليد صور ورسوم'],
+    prerequisites: [],
+    free: false,
+    price: 99,
+    chapters: []
   }
 ];
 

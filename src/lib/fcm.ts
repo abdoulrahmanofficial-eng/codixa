@@ -47,12 +47,36 @@ export async function subscribeToPush(uid: string): Promise<boolean> {
       });
     }
 
-    // Use fixed key 'default' so old subscription is replaced (no duplicates)
     await set(ref(rtdb, `admin-push-subs/${uid}/default`), subscription.toJSON());
 
     return true;
   } catch (err) {
     console.error('Push subscribe error:', err);
+    return false;
+  }
+}
+
+export async function subscribeUserToPush(uid: string): Promise<boolean> {
+  try {
+    const granted = await requestNotificationPermission();
+    if (!granted) return false;
+
+    const registration = await navigator.serviceWorker.ready;
+    if (!registration.pushManager) return false;
+
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+
+    await set(ref(rtdb, `user-push-subs/${uid}/default`), subscription.toJSON());
+
+    return true;
+  } catch (err) {
+    console.error('User push subscribe error:', err);
     return false;
   }
 }

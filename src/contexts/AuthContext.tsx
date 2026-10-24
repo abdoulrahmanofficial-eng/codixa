@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth';
 import { ref, get, set, update, push, remove, child } from 'firebase/database';
 import { auth, rtdb } from '../lib/firebase';
+import { subscribeUserToPush } from '../lib/fcm';
 import { courses } from '../data/courses';
 
 export interface WalletData {
@@ -87,6 +88,7 @@ interface AuthContextType {
   sendVerificationEmail: () => Promise<void>;
   verifyEmail: (oobCode: string) => Promise<void>;
   verifyWithCode: (uid: string, code: string) => Promise<boolean>;
+  verifyResetCode: (email: string, code: string) => Promise<boolean>;
   deleteUser: (userId: string) => Promise<void>;
   createNotification: (title: string, body: string) => Promise<void>;
   sendUserNotification: (userId: string, title: string, body: string) => Promise<void>;
@@ -133,6 +135,7 @@ const AuthContext = createContext<AuthContextType>({
   sendVerificationEmail: async () => {},
   verifyEmail: async () => {},
   verifyWithCode: async () => false,
+  verifyResetCode: async () => false,
   deleteUser: async () => {},
   createNotification: async () => {},
   sendUserNotification: async () => {},
@@ -252,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }).catch(() => {});
           }
           setLoading(false);
+          subscribeUserToPush(firebaseUser.uid);
         }).catch(() => {
           if (cancelled) return;
           setProfile(null);
@@ -306,7 +310,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPasswordFn = async (email: string) => {
-    await sendPasswordResetEmail(auth, email);
+    try { await sendPasswordResetEmail(auth, email); } catch {}
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    try { await set(ref(rtdb, `reset-codes/${email.replace(/\./g, ',')}`), { code, email, expiresAt: Date.now() + 600000 }); } catch {}
+    try { await fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: email, code, name: 'User' }) }); } catch {}
+  };
+
+  const verifyResetCode = async (email: string, code: string): Promise<boolean> => {
+    const snap = await get(ref(rtdb, `reset-codes/${email.replace(/\./g, ',')}`));
+    if (!snap.exists()) return false;
+    const data = snap.val();
+    if (data.code !== code || Date.now() > data.expiresAt) {
+      await remove(ref(rtdb, `reset-codes/${email.replace(/\./g, ',')}`));
+      return false;
+    }
+    await remove(ref(rtdb, `reset-codes/${email.replace(/\./g, ',')}`));
+    return true;
   };
 
   const sendVerificationEmailFn = async () => {
@@ -579,6 +598,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isAdmin) throw new Error('Admin only');
     const notifRef = push(ref(rtdb, 'notifications'));
     await set(notifRef, { title, body, createdAt: Date.now(), targetUserId: userId });
+    fetch('/api/send-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetUserId: userId, title, body }),
+    });
   };
 
   const getNotificationsFn = async (): Promise<AppNotification[]> => {
@@ -597,8 +621,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteNotificationFn = async (notificationId: string) => {
-    if (!isAdmin) throw new Error('Admin only');
-    await set(ref(rtdb, `notifications/${notificationId}`), null);
+    if (!user) throw new Error('Not logged in');
+    if (isAdmin) {
+      await set(ref(rtdb, `notifications/${notificationId}`), null);
+    } else {
+      await set(ref(rtdb, `users/${user.uid}/dismissedNotifications/${notificationId}`), true);
+    }
   };
 
   const createGiftCardFn = async (amount: number, message?: string): Promise<string> => {
@@ -871,6 +899,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         completedCourses['backend-engineering'] = Date.now();
       }
     }
+    // Check C# course (40 lessons: csharp-l1 to csharp-l40)
+    if (!completedCourses['csharp']) {
+      const csAllDone = Array.from({ length: 40 }, (_, i) => `csharp-l${i + 1}`).every(id => completedObj[id]);
+      if (csAllDone) {
+        completedCourses['csharp'] = Date.now();
+      }
+    }
 
     const updates: Record<string, any> = {
       completedLessons: completedObj,
@@ -929,6 +964,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sendVerificationEmail: sendVerificationEmailFn,
       verifyEmail: verifyEmailFn,
       verifyWithCode: verifyWithCodeFn,
+      verifyResetCode,
       addTransaction,
       approveDeposit,
       rejectDeposit,
